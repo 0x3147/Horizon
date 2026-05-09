@@ -6,8 +6,10 @@ from fastapi import FastAPI
 
 from src.api.handlers import register_exception_handlers
 from src.api.routes.config import router as config_router
+from src.api.routes.items import router as items_router
 from src.api.routes.runs import router as runs_router
 from src.api.routes.schedules import router as schedules_router
+from src.api.routes.summaries import router as summaries_router
 from src.api.schemas import ok
 from src.core.settings import AppSettings, load_settings
 from src.core.task_manager import TaskManager
@@ -39,5 +41,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.include_router(config_router)
     app.include_router(schedules_router)
     app.include_router(runs_router)
+    app.include_router(items_router)
+    app.include_router(summaries_router)
 
     return app
