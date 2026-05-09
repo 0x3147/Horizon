@@ -6,12 +6,12 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from dotenv import load_dotenv
 from rich.console import Console
 from rich.prompt import Prompt, Confirm
 from rich.table import Table
 from rich.panel import Panel
 
+from ..core.settings import load_environment_files
 from ..models import (
     AIConfig, AIProvider, Config, FilteringConfig, SourcesConfig,
     GitHubSourceConfig, HackerNewsConfig, RSSSourceConfig,
@@ -49,9 +49,6 @@ def configure_ai() -> Optional[AIConfig]:
     """
     console.print("\n[bold]Step 1: AI Configuration[/bold]\n")
 
-    # Check for existing .env
-    load_dotenv()
-
     providers = [p.value for p in AIProvider]
     console.print(f"Available providers: {', '.join(providers)}")
     provider = Prompt.ask(
@@ -81,10 +78,10 @@ def configure_ai() -> Optional[AIConfig]:
     # Check if the key is actually set
     if not os.getenv(api_key_env):
         console.print(
-            f"[yellow]⚠  {api_key_env} is not set in environment or .env file.[/yellow]"
+            f"[yellow]⚠  {api_key_env} is not set in environment or secrets.env.[/yellow]"
         )
         console.print("   AI features (smart recommendations) will be skipped.")
-        console.print(f"   Add it to your .env file later: {api_key_env}=your_key_here\n")
+        console.print(f"   Add it to ~/.horizon/secrets.env later: {api_key_env}=your_key_here\n")
 
     languages = Prompt.ask(
         "Output languages (comma-separated)",
@@ -349,7 +346,8 @@ def main():
     """Main entry point for the setup wizard."""
     print_banner()
 
-    storage = StorageManager(data_dir="data")
+    settings = load_environment_files()
+    storage = StorageManager(data_dir=str(settings.data_dir))
 
     # Step 1: AI configuration
     ai_config = configure_ai()

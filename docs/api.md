@@ -87,10 +87,14 @@ curl -X POST http://127.0.0.1:8765/schedules/validate-cron \
 
 ## Environment Variables
 
+By default, Horizon Trace stores local API data in `~/.horizon`.
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HORIZON_DATA_DIR` | `data` | Local data directory |
-| `HORIZON_DB_PATH` | `data/horizon.db` | SQLite database path |
-| `HORIZON_CONFIG_PATH` | `data/config.json` | Config file path |
+| `HORIZON_HOME` | `~/.horizon` | Horizon Trace user data directory |
+| `HORIZON_DATA_DIR` | `~/.horizon` | Local data directory |
+| `HORIZON_DB_PATH` | `~/.horizon/horizon.db` | SQLite database path |
+| `HORIZON_CONFIG_PATH` | `~/.horizon/config.json` | Config file path |
+| `HORIZON_SECRETS_PATH` | `~/.horizon/secrets.env` | Local user secrets file |
 | `HORIZON_HOST` | `127.0.0.1` | API host |
 | `HORIZON_PORT` | `8765` | API port |

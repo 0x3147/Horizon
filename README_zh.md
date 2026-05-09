@@ -192,9 +192,10 @@ git clone https://github.com/Thysrael/Horizon.git
 cd horizon
 
 # 配置环境
-cp .env.example .env
-cp data/config.example.json data/config.json
-# 编辑 .env 和 data/config.json，填入你的 API 密钥和偏好设置
+mkdir -p ~/.horizon
+cp .env.example ~/.horizon/secrets.env
+cp data/config.example.json ~/.horizon/config.json
+# 编辑 ~/.horizon/secrets.env 和 ~/.horizon/config.json，填入你的 API 密钥和偏好设置
 
 # 使用 Docker Compose 运行
 docker-compose run --rm horizon
@@ -211,13 +212,14 @@ docker-compose run --rm horizon --hours 48
 uv run horizon-wizard
 ```
 
-向导会询问你的兴趣（如"LLM 推理"、"嵌入式"、"web 安全"），自动推荐并生成 `data/config.json`，还可选让 AI 补充推荐小众源。若你想分享信息源，请前往 [horizon1123.top](https://horizon1123.top/)。
+向导会询问你的兴趣（如"LLM 推理"、"嵌入式"、"web 安全"），自动推荐并生成 `~/.horizon/config.json`，还可选让 AI 补充推荐小众源。若你想分享信息源，请前往 [horizon1123.top](https://horizon1123.top/)。
 
 **方式 B：手动配置**
 
 ```bash
-cp .env.example .env          # 添加 API 密钥
-cp data/config.example.json data/config.json  # 自定义信息源
+mkdir -p ~/.horizon
+cp .env.example ~/.horizon/secrets.env        # 添加 API 密钥
+cp data/config.example.json ~/.horizon/config.json  # 自定义信息源
 ```
 
 最小手动配置示例：
@@ -266,7 +268,7 @@ docker-compose run --rm horizon              # 使用默认 24 小时窗口
 docker-compose run --rm horizon --hours 48   # 抓取最近 48 小时的内容
 ```
 
-生成的日报将保存在 `data/summaries/` 目录中。
+生成的日报将保存在 `~/.horizon/summaries/` 目录中。
 
 ### 4. 自动化（可选）
 

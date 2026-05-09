@@ -6,10 +6,16 @@ from fastapi.testclient import TestClient
 
 from src.api.app import create_app
 from src.core.errors import ErrorCode, HorizonApiError, capture_service_errors
+from src.core.settings import AppSettings
 
 
-def test_business_error_uses_unified_response():
-    app = create_app()
+def settings(tmp_path):
+    data_dir = tmp_path / ".horizon"
+    return AppSettings(data_dir, data_dir / "horizon.db", data_dir / "config.json", "127.0.0.1", 8765)
+
+
+def test_business_error_uses_unified_response(tmp_path):
+    app = create_app(settings(tmp_path))
     router = APIRouter()
 
     @router.get("/boom")
@@ -27,8 +33,8 @@ def test_business_error_uses_unified_response():
     assert response.json()["errorMessage"] == "Run not found"
 
 
-def test_request_validation_uses_unified_response():
-    app = create_app()
+def test_request_validation_uses_unified_response(tmp_path):
+    app = create_app(settings(tmp_path))
     router = APIRouter()
 
     @router.get("/needs-int")

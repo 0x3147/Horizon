@@ -169,6 +169,6 @@ Flow:
 - `actor_id` — Apify actor ID (default: `altimis~scweet`)
 - `apify_token_env` — environment variable name containing the Apify API token
 
-**Authentication**: Set `APIFY_TOKEN` in your `.env`. Get a token at [console.apify.com](https://console.apify.com/account/integrations).
+**Authentication**: Set `APIFY_TOKEN` in `~/.horizon/secrets.env`. Get a token at [console.apify.com](https://console.apify.com/account/integrations).
 
 **Extracted data**: tweet text, URL, author, publish time, likes, retweets, replies, views, and (optionally) reply-thread text appended under `--- Top Comments ---`.

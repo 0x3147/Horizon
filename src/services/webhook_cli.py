@@ -5,15 +5,15 @@ import asyncio
 import json
 import sys
 from datetime import datetime, timezone
-from pathlib import Path
 
-from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
 
+from ..core.config_service import ConfigService
+from ..core.errors import ErrorCode, HorizonApiError
+from ..core.settings import load_environment_files
 from ..ai.summarizer import DailySummarizer
 from ..models import ContentItem, SourceType
-from ..storage.manager import StorageManager
 from .webhook import WebhookNotifier
 
 console = Console()
@@ -163,19 +163,19 @@ def main() -> None:
     args = parser.parse_args()
 
     try:
-        load_dotenv()
-
-        storage = StorageManager(data_dir=str(Path("data")))
+        settings = load_environment_files()
         try:
-            config = storage.load_config()
-        except FileNotFoundError:
+            config = ConfigService(settings.config_path).get_config()
+        except HorizonApiError as exc:
+            if exc.error_code != ErrorCode.CONFIG_FILE_NOT_FOUND:
+                raise
             console.print("[bold red]Configuration file not found![/bold red]")
             console.print("Run [bold cyan]uv run horizon-wizard[/bold cyan] to set up your configuration.")
             sys.exit(1)
 
         if not config.webhook or not config.webhook.enabled:
             console.print("[yellow]Webhook is not enabled in config.json.[/yellow]")
-            console.print("Set [cyan]webhook.enabled = true[/cyan] in data/config.json to enable it.")
+            console.print(f"Set [cyan]webhook.enabled = true[/cyan] in {settings.config_path} to enable it.")
             sys.exit(1)
 
         lang = args.lang or (config.ai.languages[0] if config.ai.languages else "en")

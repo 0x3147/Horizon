@@ -5,7 +5,12 @@ title: Configuration Guide
 
 # Configuration Guide
 
-Horizon is configured through two files: a `.env` file for API keys and a `data/config.json` file for sources, AI provider, and filtering options.
+Horizon Trace stores local user configuration under `~/.horizon` by default:
+
+- `~/.horizon/config.json` for sources, AI provider, filtering, email, webhook, and other user-editable settings.
+- `~/.horizon/secrets.env` for user-owned secrets such as AI API keys, webhook URLs, email passwords, and optional service tokens.
+
+Environment variables such as `HORIZON_HOME`, `HORIZON_CONFIG_PATH`, and `HORIZON_SECRETS_PATH` can still override these paths for advanced local setups.
 
 ## AI Providers
 
@@ -52,7 +57,7 @@ Configure which AI model scores and summarizes your content.
 }
 ```
 
-Set `AZURE_OPENAI_API_KEY` and `AZURE_OPENAI_ENDPOINT` in your `.env`. The `model` field should be your Azure deployment name, not just the base model family name.
+Set `AZURE_OPENAI_API_KEY` and `AZURE_OPENAI_ENDPOINT` in `~/.horizon/secrets.env`. The `model` field should be your Azure deployment name, not just the base model family name.
 
 **MiniMax**:
 
@@ -82,11 +87,11 @@ Available models: `MiniMax-M2.7`, `MiniMax-M2.7-highspeed`, `MiniMax-M2.5`, `Min
 }
 ```
 
-Use the [DashScope compatible-mode](https://help.aliyun.com/zh/dashscope/developer-reference/use-dashscope-by-calling-openai-api) endpoint. Set `DASHSCOPE_API_KEY` in your `.env`. Optional: set `base_url` to override the default `https://dashscope.aliyuncs.com/compatible-mode/v1`.
+Use the [DashScope compatible-mode](https://help.aliyun.com/zh/dashscope/developer-reference/use-dashscope-by-calling-openai-api) endpoint. Set `DASHSCOPE_API_KEY` in `~/.horizon/secrets.env`. Optional: set `base_url` to override the default `https://dashscope.aliyuncs.com/compatible-mode/v1`.
 
 ### AI throttling
 
-If your model has a strict per-minute request cap, you can slow the scorer down in `data/config.json`:
+If your model has a strict per-minute request cap, you can slow the scorer down in `~/.horizon/config.json`:
 
 ```json
 {
@@ -199,7 +204,7 @@ All sources are configured under the top-level `sources` key in `config.json`.
 
 ### Twitter
 
-Requires an [Apify](https://apify.com) account. Set `APIFY_TOKEN` in your `.env` file. The free tier includes $5/month of credit, enough for roughly 20,000 tweets.
+Requires an [Apify](https://apify.com) account. Set `APIFY_TOKEN` in `~/.horizon/secrets.env`. The free tier includes $5/month of credit, enough for roughly 20,000 tweets.
 
 ```json
 {
@@ -250,7 +255,7 @@ Content is scored 0-10:
 
 ## Environment Variable Substitution
 
-RSS feed URLs support `${VAR_NAME}` syntax for secrets. The variable is expanded at runtime from environment variables (or `.env` file):
+RSS feed URLs support `${VAR_NAME}` syntax for secrets. The variable is expanded at runtime from environment variables or `~/.horizon/secrets.env`:
 
 ```json
 {
@@ -315,7 +320,7 @@ Webhook notification is optional and disabled unless `webhook.enabled` is `true`
 ```
 
 - `enabled`: Turns webhook delivery on or off. The default is `false`.
-- `url_env`: Environment variable that contains the webhook URL. For example, set `HORIZON_WEBHOOK_URL=https://...` in `.env`.
+- `url_env`: Environment variable that contains the webhook URL. For example, set `HORIZON_WEBHOOK_URL=https://...` in `~/.horizon/secrets.env`.
 - `delivery`: Controls how messages are sent. Use `summary` for one full message, or `summary_and_items` for one overview message followed by one message per selected item.
 - `overview_position`: Controls where the overview is sent in `summary_and_items` mode. Use `first` for the traditional order, or `last` to send item details in reverse and keep the overview as the newest chat message.
 - `platform`: Optional webhook platform hint. Use `generic` by default, or `feishu` / `lark` to enable platform-specific card rendering.
@@ -434,7 +439,7 @@ With this layout, Horizon sends one interactive card containing the overview and
 
 ## Static Site
 
-Horizon writes generated summaries to `data/summaries/` and copies publishable Markdown into `docs/` for the GitHub Pages site. The repository includes a ready-to-use workflow at `.github/workflows/daily-summary.yml`.
+Horizon writes generated summaries to `~/.horizon/summaries/` by default and copies publishable Markdown into `docs/` for the GitHub Pages site. The repository includes a ready-to-use workflow at `.github/workflows/daily-summary.yml`.
 
 To use GitHub Pages, enable Pages for the repository and run the scheduled workflow or trigger it manually. The generated site is built from the `docs/` directory.
 

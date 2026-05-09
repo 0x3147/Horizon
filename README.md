@@ -191,9 +191,10 @@ git clone https://github.com/Thysrael/Horizon.git
 cd horizon
 
 # Configure environment
-cp .env.example .env
-cp data/config.example.json data/config.json
-# Edit .env and data/config.json with your API keys and preferences
+mkdir -p ~/.horizon
+cp .env.example ~/.horizon/secrets.env
+cp data/config.example.json ~/.horizon/config.json
+# Edit ~/.horizon/secrets.env and ~/.horizon/config.json with your API keys and preferences
 
 # Run with Docker Compose
 docker-compose run --rm horizon
@@ -210,13 +211,14 @@ docker-compose run --rm horizon --hours 48
 uv run horizon-wizard
 ```
 
-The wizard asks about your interests (e.g. "LLM inference", "嵌入式", "web security") and auto-generates `data/config.json`.
+The wizard asks about your interests (e.g. "LLM inference", "嵌入式", "web security") and auto-generates `~/.horizon/config.json`.
 
 **Option B: Manual configuration**
 
 ```bash
-cp .env.example .env          # Add your API keys
-cp data/config.example.json data/config.json  # Customize your sources
+mkdir -p ~/.horizon
+cp .env.example ~/.horizon/secrets.env        # Add your API keys
+cp data/config.example.json ~/.horizon/config.json  # Customize your sources
 ```
 
 Minimal manual configuration:
@@ -265,7 +267,7 @@ docker-compose run --rm horizon           # Run with default 24h window
 docker-compose run --rm horizon --hours 48  # Fetch from last 48 hours
 ```
 
-The generated report will be saved to `data/summaries/`.
+The generated report will be saved to `~/.horizon/summaries/`.
 
 ### 4. Automate (Optional)
 

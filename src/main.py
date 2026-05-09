@@ -3,11 +3,12 @@
 import argparse
 import asyncio
 import sys
-from pathlib import Path
 
-from dotenv import load_dotenv
 from rich.console import Console
 
+from .core.config_service import ConfigService
+from .core.errors import ErrorCode, HorizonApiError
+from .core.settings import load_environment_files
 from .storage.manager import StorageManager
 from .orchestrator import HorizonOrchestrator
 
@@ -40,23 +41,21 @@ def main():
     args = parser.parse_args()
 
     try:
-        # Load environment variables from .env file
-        load_dotenv()
-
-        # Ensure we're in the project directory or use data/ in current dir
-        data_dir = Path("data")
+        settings = load_environment_files()
 
         # Initialize storage manager
-        storage = StorageManager(data_dir=str(data_dir))
+        storage = StorageManager(data_dir=str(settings.data_dir))
 
         # Load configuration
         try:
-            config = storage.load_config()
-        except FileNotFoundError:
+            config = ConfigService(settings.config_path).get_config()
+        except HorizonApiError as exc:
+            if exc.error_code != ErrorCode.CONFIG_FILE_NOT_FOUND:
+                raise
             console.print("[bold red]❌ Configuration file not found![/bold red]\n")
             console.print(
                 "Run [bold cyan]uv run horizon-wizard[/bold cyan] to launch the interactive setup wizard,\n"
-                "or create [cyan]data/config.json[/cyan] manually based on the template:\n"
+                f"or create [cyan]{settings.config_path}[/cyan] manually based on the template:\n"
             )
             print_config_template()
             sys.exit(1)
@@ -118,7 +117,7 @@ def print_config_template():
   }
 }
 
-Also create a .env file with:
+Also create ~/.horizon/secrets.env with:
 ANTHROPIC_API_KEY=your_api_key_here
 GITHUB_TOKEN=your_github_token_here (optional but recommended)
 """
