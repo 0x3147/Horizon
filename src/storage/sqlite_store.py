@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 
 SCHEMA_SQL = (
@@ -121,3 +124,383 @@ class SQLiteStore:
                 conn.execute(statement)
             conn.execute("INSERT OR IGNORE INTO schema_migrations (version) VALUES (1)")
             conn.commit()
+
+    def create_run(self, run_id: str, hours: int, config_snapshot: dict[str, Any] | None = None) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO runs (id, status, hours, started_at, config_snapshot_json)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    run_id,
+                    "pending",
+                    hours,
+                    _utc_now(),
+                    _json_dumps(config_snapshot or {}),
+                ),
+            )
+            conn.commit()
+
+    def update_run(self, run_id: str, **fields: Any) -> None:
+        if not fields:
+            return
+        updates = []
+        values = []
+        allowed = {
+            "status",
+            "hours",
+            "started_at",
+            "finished_at",
+            "raw_count",
+            "scored_count",
+            "filtered_count",
+            "enriched_count",
+            "error_message",
+        }
+        for key, value in fields.items():
+            if key == "config_snapshot":
+                updates.append("config_snapshot_json = ?")
+                values.append(_json_dumps(value or {}))
+            elif key in allowed:
+                updates.append(f"{key} = ?")
+                values.append(_serialize_scalar(value))
+        if not updates:
+            return
+        values.append(run_id)
+        with self.connect() as conn:
+            conn.execute(f"UPDATE runs SET {', '.join(updates)} WHERE id = ?", values)
+            conn.commit()
+
+    def get_run(self, run_id: str) -> dict[str, Any] | None:
+        with self.connect() as conn:
+            row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        return _run_from_row(row) if row else None
+
+    def list_runs(self, limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
+        with self.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM runs
+                ORDER BY started_at DESC, id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (limit, offset),
+            ).fetchall()
+        return [_run_from_row(row) for row in rows]
+
+    def add_log(self, run_id: str | None, level: str, stage: str | None, message: str) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO run_logs (run_id, level, stage, message)
+                VALUES (?, ?, ?, ?)
+                """,
+                (run_id, level, stage, message),
+            )
+            conn.commit()
+
+    def list_logs(
+        self,
+        run_id: str | None = None,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        where = ""
+        params: list[Any] = []
+        if run_id is not None:
+            where = "WHERE run_id = ?"
+            params.append(run_id)
+        params.extend([limit, offset])
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT * FROM run_logs
+                {where}
+                ORDER BY id ASC
+                LIMIT ? OFFSET ?
+                """,
+                params,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def save_items(
+        self,
+        run_id: str,
+        items: list[Any],
+        stage: str,
+        selected: bool = False,
+    ) -> None:
+        with self.connect() as conn:
+            for item in items:
+                metadata = dict(getattr(item, "metadata", {}) or {})
+                conn.execute(
+                    """
+                    INSERT INTO items (
+                        id, run_id, source_type, source_name, native_id, title, url,
+                        content, author, published_at, fetched_at, metadata_json,
+                        stage, is_selected, duplicate_of_item_id
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(run_id, id) DO UPDATE SET
+                        source_type = excluded.source_type,
+                        source_name = excluded.source_name,
+                        native_id = excluded.native_id,
+                        title = excluded.title,
+                        url = excluded.url,
+                        content = excluded.content,
+                        author = excluded.author,
+                        published_at = excluded.published_at,
+                        fetched_at = excluded.fetched_at,
+                        metadata_json = excluded.metadata_json,
+                        stage = excluded.stage,
+                        is_selected = excluded.is_selected,
+                        duplicate_of_item_id = excluded.duplicate_of_item_id
+                    """,
+                    (
+                        item.id,
+                        run_id,
+                        _enum_value(item.source_type),
+                        _source_name(metadata),
+                        metadata.get("native_id") or str(item.id).split(":")[-1],
+                        item.title,
+                        str(item.url),
+                        item.content,
+                        item.author,
+                        _serialize_scalar(item.published_at),
+                        _serialize_scalar(item.fetched_at),
+                        _json_dumps(metadata),
+                        stage,
+                        1 if selected else 0,
+                        metadata.get("duplicate_of_item_id"),
+                    ),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO item_analysis (
+                        run_id, item_id, ai_score, ai_reason, ai_summary, ai_tags_json,
+                        detailed_summary_json, background_json, community_discussion_json,
+                        citations_json
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(run_id, item_id) DO UPDATE SET
+                        ai_score = excluded.ai_score,
+                        ai_reason = excluded.ai_reason,
+                        ai_summary = excluded.ai_summary,
+                        ai_tags_json = excluded.ai_tags_json,
+                        detailed_summary_json = excluded.detailed_summary_json,
+                        background_json = excluded.background_json,
+                        community_discussion_json = excluded.community_discussion_json,
+                        citations_json = excluded.citations_json
+                    """,
+                    (
+                        run_id,
+                        item.id,
+                        getattr(item, "ai_score", None),
+                        getattr(item, "ai_reason", None),
+                        getattr(item, "ai_summary", None),
+                        _json_dumps(getattr(item, "ai_tags", []) or []),
+                        _json_dumps(getattr(item, "detailed_summary", {}) or {}),
+                        _json_dumps(getattr(item, "background", {}) or {}),
+                        _json_dumps(getattr(item, "community_discussion", {}) or {}),
+                        _json_dumps(getattr(item, "citations", []) or []),
+                    ),
+                )
+            count_column = {
+                "raw": "raw_count",
+                "scored": "scored_count",
+                "filtered": "filtered_count",
+                "enriched": "enriched_count",
+            }.get(stage)
+            if count_column:
+                conn.execute(
+                    f"UPDATE runs SET {count_column} = ? WHERE id = ?",
+                    (len(items), run_id),
+                )
+            conn.commit()
+
+    def query_items(
+        self,
+        run_id: str | None = None,
+        source_type: str | None = None,
+        min_score: float | None = None,
+        max_score: float | None = None,
+        selected_only: bool = False,
+        stage: str | None = None,
+        tag: str | None = None,
+        q: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        where: list[str] = []
+        params: list[Any] = []
+        if run_id:
+            where.append("i.run_id = ?")
+            params.append(run_id)
+        if source_type:
+            where.append("i.source_type = ?")
+            params.append(_enum_value(source_type))
+        if min_score is not None:
+            where.append("a.ai_score >= ?")
+            params.append(min_score)
+        if max_score is not None:
+            where.append("a.ai_score <= ?")
+            params.append(max_score)
+        if selected_only:
+            where.append("i.is_selected = 1")
+        if stage:
+            where.append("i.stage = ?")
+            params.append(stage)
+        if tag:
+            where.append("a.ai_tags_json LIKE ?")
+            params.append(f'%"{tag}"%')
+        if q:
+            where.append("(LOWER(i.title) LIKE ? OR LOWER(i.content) LIKE ? OR LOWER(a.ai_summary) LIKE ?)")
+            needle = f"%{q.lower()}%"
+            params.extend([needle, needle, needle])
+        where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+        params.extend([limit, offset])
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT i.*, a.ai_score, a.ai_reason, a.ai_summary, a.ai_tags_json,
+                       a.detailed_summary_json, a.background_json,
+                       a.community_discussion_json, a.citations_json
+                FROM items i
+                LEFT JOIN item_analysis a ON a.run_id = i.run_id AND a.item_id = i.id
+                {where_sql}
+                ORDER BY COALESCE(a.ai_score, -1) DESC, i.published_at DESC
+                LIMIT ? OFFSET ?
+                """,
+                params,
+            ).fetchall()
+        return [_item_from_row(row) for row in rows]
+
+    def get_item(self, item_id: str, run_id: str | None = None) -> dict[str, Any] | None:
+        where = ["i.id = ?"]
+        params: list[Any] = [item_id]
+        if run_id:
+            where.append("i.run_id = ?")
+            params.append(run_id)
+        with self.connect() as conn:
+            row = conn.execute(
+                f"""
+                SELECT i.*, a.ai_score, a.ai_reason, a.ai_summary, a.ai_tags_json,
+                       a.detailed_summary_json, a.background_json,
+                       a.community_discussion_json, a.citations_json
+                FROM items i
+                LEFT JOIN item_analysis a ON a.run_id = i.run_id AND a.item_id = i.id
+                WHERE {' AND '.join(where)}
+                ORDER BY i.fetched_at DESC
+                LIMIT 1
+                """,
+                params,
+            ).fetchone()
+        return _item_from_row(row) if row else None
+
+    def save_summary(
+        self,
+        run_id: str,
+        language: str,
+        markdown: str,
+        saved_path: str | None = None,
+        summary_id: str | None = None,
+    ) -> dict[str, Any]:
+        summary_id = summary_id or f"{run_id}:{language}"
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO summaries (id, run_id, language, markdown, saved_path)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    run_id = excluded.run_id,
+                    language = excluded.language,
+                    markdown = excluded.markdown,
+                    saved_path = excluded.saved_path
+                """,
+                (summary_id, run_id, language, markdown, saved_path),
+            )
+            row = conn.execute("SELECT * FROM summaries WHERE id = ?", (summary_id,)).fetchone()
+            conn.commit()
+        return dict(row)
+
+    def list_summaries(
+        self,
+        run_id: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        where = ""
+        params: list[Any] = []
+        if run_id:
+            where = "WHERE run_id = ?"
+            params.append(run_id)
+        params.extend([limit, offset])
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT * FROM summaries
+                {where}
+                ORDER BY created_at DESC, id DESC
+                LIMIT ? OFFSET ?
+                """,
+                params,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_summary(self, summary_id: str) -> dict[str, Any] | None:
+        with self.connect() as conn:
+            row = conn.execute("SELECT * FROM summaries WHERE id = ?", (summary_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _json_dumps(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _json_loads(value: str | None, default: Any) -> Any:
+    if value is None:
+        return default
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return default
+
+
+def _serialize_scalar(value: Any) -> Any:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return value
+
+
+def _enum_value(value: Any) -> str:
+    return getattr(value, "value", value)
+
+
+def _source_name(metadata: dict[str, Any]) -> str | None:
+    for key in ("source_name", "feed_name", "subreddit", "channel", "repo"):
+        if metadata.get(key):
+            return str(metadata[key])
+    return None
+
+
+def _run_from_row(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["config_snapshot"] = _json_loads(data.pop("config_snapshot_json", None), {})
+    return data
+
+
+def _item_from_row(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["metadata"] = _json_loads(data.pop("metadata_json", None), {})
+    data["is_selected"] = bool(data["is_selected"])
+    data["ai_tags"] = _json_loads(data.pop("ai_tags_json", None), [])
+    data["detailed_summary"] = _json_loads(data.pop("detailed_summary_json", None), {})
+    data["background"] = _json_loads(data.pop("background_json", None), {})
+    data["community_discussion"] = _json_loads(data.pop("community_discussion_json", None), {})
+    data["citations"] = _json_loads(data.pop("citations_json", None), [])
+    return data
