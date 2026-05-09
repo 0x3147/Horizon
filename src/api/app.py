@@ -4,17 +4,9 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
+from src.api.handlers import register_exception_handlers
+from src.api.schemas import ok
 from src.core.settings import AppSettings, load_settings
-
-
-def _response(data: dict, code: int = 200) -> dict:
-    return {
-        "code": code,
-        "success": True,
-        "data": data,
-        "errorCode": None,
-        "errorMessage": None,
-    }
 
 
 def create_app(settings: AppSettings | None = None) -> FastAPI:
@@ -30,9 +22,10 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.state.data_dir = Path(settings.data_dir)
     app.state.db_path = Path(settings.db_path)
     app.state.config_path = Path(settings.config_path)
+    register_exception_handlers(app)
 
     @app.get("/health")
     def health() -> dict:
-        return _response({"status": "ok"})
+        return ok({"status": "ok"})
 
     return app
