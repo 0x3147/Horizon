@@ -251,6 +251,14 @@ uv run horizon              # 使用默认 24 小时窗口
 uv run horizon --hours 48   # 抓取最近 48 小时的内容
 ```
 
+#### 本地 API
+
+```bash
+uv run horizon-api
+```
+
+FastAPI 后端默认监听 `http://127.0.0.1:8765`，Swagger 位于 `/docs`。接口列表、统一响应格式、cron 调度和环境变量见[本地 API 文档](docs/api.md)。
+
 #### 使用 Docker
 
 ```bash
@@ -293,6 +301,7 @@ Horizon 支持通过多种方式发布和分发生成的日报：
 | 文档 | 内容 |
 |------|------|
 | [配置指南](docs/configuration.md) | AI 模型、信息源、过滤、邮件、Webhook、GitHub Pages 和 MCP 配置 |
+| [本地 API](docs/api.md) | FastAPI 后端接口、统一响应格式、cron 调度和运行配置 |
 | [评分机制](docs/scoring.md) | Horizon 如何评估和排序新闻 |
 | [抓取器](docs/scrapers.md) | 信息源抓取器说明和扩展细节 |
 | [MCP 工具](src/mcp/README.md) | MCP 客户端可调用的工具说明 |

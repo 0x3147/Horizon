@@ -250,6 +250,14 @@ uv run horizon           # Run with default 24h window
 uv run horizon --hours 48  # Fetch from last 48 hours
 ```
 
+#### Local API
+
+```bash
+uv run horizon-api
+```
+
+The FastAPI backend listens on `http://127.0.0.1:8765` by default, with Swagger at `/docs`. See [Local API](docs/api.md) for endpoints, response format, cron schedules, and environment variables.
+
 #### With Docker
 
 ```bash
@@ -292,6 +300,7 @@ For setup details, see the [Configuration Guide](docs/configuration.md). For MCP
 | Guide | Description |
 |-------|-------------|
 | [Configuration](docs/configuration.md) | AI providers, sources, filtering, email, webhook, GitHub Pages, and MCP setup |
+| [Local API](docs/api.md) | FastAPI backend endpoints, response format, cron schedules, and runtime settings |
 | [Scoring](docs/scoring.md) | How Horizon evaluates and ranks news items |
 | [Scrapers](docs/scrapers.md) | Source scraper details and extension notes |
 | [MCP Tools](src/mcp/README.md) | Tool reference for MCP-compatible clients |
