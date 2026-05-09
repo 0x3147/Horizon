@@ -240,7 +240,7 @@ class WebhookNotifier:
 
     def __init__(self, config: WebhookConfig, console=None):
         self.config = config
-        self.url = os.getenv(config.url_env or "") if config.url_env else None
+        self.url = config.url or (os.getenv(config.url_env or "") if config.url_env else None)
         if console is None:
             try:
                 from rich.console import Console
@@ -493,7 +493,7 @@ class WebhookNotifier:
             return
 
         if not self.url:
-            logger.warning("Webhook enabled but URL is empty (env var %s not set), skipping notification.", self.config.url_env)
+            logger.warning("Webhook enabled but URL is not configured, skipping notification.")
             return
 
         method = "GET"

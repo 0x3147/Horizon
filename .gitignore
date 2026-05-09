@@ -37,6 +37,7 @@ ENV/
 .env
 
 # Data files (keep structure, ignore content)
+data/config.json
 data/*.db
 data/seen.json
 data/summaries/*.md

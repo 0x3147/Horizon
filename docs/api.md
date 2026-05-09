@@ -94,7 +94,6 @@ By default, Horizon Trace stores local API data in `~/.horizon`.
 | `HORIZON_HOME` | `~/.horizon` | Horizon Trace user data directory |
 | `HORIZON_DATA_DIR` | `~/.horizon` | Local data directory |
 | `HORIZON_DB_PATH` | `~/.horizon/horizon.db` | SQLite database path |
-| `HORIZON_CONFIG_PATH` | `~/.horizon/config.json` | Config file path |
-| `HORIZON_SECRETS_PATH` | `~/.horizon/secrets.env` | Local user secrets file |
+| `HORIZON_CONFIG_PATH` | `~/.horizon/settings.json` | Settings file path |
 | `HORIZON_HOST` | `127.0.0.1` | API host |
 | `HORIZON_PORT` | `8765` | API port |

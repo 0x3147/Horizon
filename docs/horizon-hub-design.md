@@ -132,7 +132,7 @@ Hub Server
 
 After users select sources on the Hub website:
 
-- Generate `config.json` snippet → Copy to clipboard
+- Generate `settings.json` snippet → Copy to clipboard
 - Download full config file
 - Generate `horizon-wizard` command → One-click import via terminal
 

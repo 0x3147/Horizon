@@ -53,12 +53,14 @@ class AIConfig(BaseModel):
     provider: AIProvider
     model: str
     base_url: Optional[str] = None
-    api_key_env: str
+    api_key: Optional[str] = None
+    api_key_env: Optional[str] = None
     temperature: float = 0.3
     max_tokens: int = 4096
     throttle_sec: float = 0.0
     languages: List[str] = Field(default_factory=lambda: ["en"])
     # Azure OpenAI specific; required when provider == AZURE
+    azure_endpoint: Optional[str] = None
     azure_endpoint_env: Optional[str] = None
     api_version: Optional[str] = None
 
@@ -132,6 +134,7 @@ class TelegramConfig(BaseModel):
 class TwitterConfig(BaseModel):
     """Twitter source configuration via Apify."""
     enabled: bool = True
+    apify_token: Optional[str] = None
     apify_token_env: str = "APIFY_TOKEN"
     actor_id: str = "altimis~scweet"
     users: List[str] = Field(default_factory=list)
@@ -156,7 +159,8 @@ class SourcesConfig(BaseModel):
 class WebhookConfig(BaseModel):
     """Webhook notification configuration."""
 
-    url_env: Optional[str] = None          # Environment variable name containing the webhook URL
+    url: Optional[str] = None
+    url_env: Optional[str] = None          # Advanced fallback environment variable name for the webhook URL.
     request_body: Optional[Union[str, dict, list]] = None  # POST body: real JSON object or string with #{key} placeholders; if empty, will use GET
     headers: Optional[str] = None          # Custom headers, "Key: Value" per line
     delivery: str = "summary"             # summary, or summary_and_items
@@ -175,6 +179,7 @@ class EmailConfig(BaseModel):
     smtp_server: str
     smtp_port: int = 465
     email_address: str
+    password: Optional[str] = None
     password_env: str = "EMAIL_PASSWORD"
     sender_name: str = "Horizon Daily"
     subscribe_keyword: str = "SUBSCRIBE"
@@ -196,5 +201,6 @@ class Config(BaseModel):
     ai: AIConfig
     sources: SourcesConfig
     filtering: FilteringConfig
+    github_token: Optional[str] = None
     email: Optional[EmailConfig] = None
     webhook: Optional[WebhookConfig] = None

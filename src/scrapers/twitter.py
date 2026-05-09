@@ -36,11 +36,9 @@ class TwitterScraper(BaseScraper):
             logger.debug("No Twitter users configured, skipping.")
             return []
 
-        token = os.environ.get(self.config.apify_token_env)
+        token = self.config.apify_token or os.environ.get(self.config.apify_token_env)
         if not token:
-            logger.warning(
-                f"Apify token not found in env var '{self.config.apify_token_env}'. Skipping Twitter."
-            )
+            logger.warning("Apify token is not configured. Skipping Twitter.")
             return []
 
         logger.info(f"Fetching Twitter (Apify) for users: {users}")
@@ -122,7 +120,7 @@ class TwitterScraper(BaseScraper):
         if not self.config.fetch_reply_text:
             return []
 
-        token = os.environ.get(self.config.apify_token_env)
+        token = self.config.apify_token or os.environ.get(self.config.apify_token_env)
         if not token:
             return []
 

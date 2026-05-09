@@ -61,27 +61,18 @@ def configure_ai() -> Optional[AIConfig]:
 
     base_url = Prompt.ask("Base URL (leave empty for default)", default="")
 
-    # Determine default env var name
-    default_env = {
-        "anthropic": "ANTHROPIC_API_KEY",
-        "openai": "OPENAI_API_KEY",
-        "gemini": "GOOGLE_API_KEY",
-        "ali": "DASHSCOPE_API_KEY",
-        "doubao": "DOUBAO_API_KEY",
-        "minimax": "MINIMAX_API_KEY",
-    }
-    api_key_env = Prompt.ask(
-        "API key environment variable name",
-        default=default_env.get(provider, "API_KEY"),
+    api_key = Prompt.ask(
+        "API key (stored locally in settings.json; leave empty to add later)",
+        default="",
+        password=True,
     )
 
-    # Check if the key is actually set
-    if not os.getenv(api_key_env):
+    if not api_key:
         console.print(
-            f"[yellow]⚠  {api_key_env} is not set in environment or secrets.env.[/yellow]"
+            "[yellow]⚠  No API key was provided.[/yellow]"
         )
         console.print("   AI features (smart recommendations) will be skipped.")
-        console.print(f"   Add it to ~/.horizon/secrets.env later: {api_key_env}=your_key_here\n")
+        console.print("   You can add it to ~/.horizon/settings.json later.\n")
 
     languages = Prompt.ask(
         "Output languages (comma-separated)",
@@ -93,7 +84,7 @@ def configure_ai() -> Optional[AIConfig]:
         provider=AIProvider(provider),
         model=model,
         base_url=base_url or None,
-        api_key_env=api_key_env,
+        api_key=api_key or None,
         temperature=0.3,
         max_tokens=8192,
         languages=lang_list,
@@ -347,7 +338,7 @@ def main():
     print_banner()
 
     settings = load_environment_files()
-    storage = StorageManager(data_dir=str(settings.data_dir))
+    storage = StorageManager(data_dir=str(settings.data_dir), config_path=settings.config_path)
 
     # Step 1: AI configuration
     ai_config = configure_ai()
@@ -382,7 +373,7 @@ def main():
 
     # Step 4: AI recommendations (optional)
     ai_sources = []
-    ai_available = bool(os.getenv(ai_config.api_key_env))
+    ai_available = bool(ai_config.api_key)
 
     if ai_available:
         if Confirm.ask("\nAsk AI for additional source recommendations?", default=True):
@@ -396,7 +387,7 @@ def main():
                 console.print("[yellow]AI returned no additional recommendations.[/yellow]")
     else:
         console.print(
-            f"\n[dim]Skipping AI recommendations ({ai_config.api_key_env} not set)[/dim]"
+            "\n[dim]Skipping AI recommendations (API key not configured)[/dim]"
         )
 
     # Step 5: Interactive source selection
@@ -411,7 +402,7 @@ def main():
     # Merge with existing config if present
     try:
         existing = storage.load_config()
-        if Confirm.ask("\nExisting config.json found. Merge new sources into it?", default=True):
+        if Confirm.ask("\nExisting settings.json found. Merge new sources into it?", default=True):
             config = merge_configs(config, existing)
     except FileNotFoundError:
         pass

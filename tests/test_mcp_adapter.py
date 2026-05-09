@@ -13,10 +13,17 @@ def test_resolve_horizon_path_accepts_explicit_repo() -> None:
     assert resolve_horizon_path(str(repo_root)) == repo_root.resolve()
 
 
-def test_resolve_config_path_defaults_to_repo_data_config() -> None:
+def test_resolve_config_path_defaults_to_horizon_home_settings(tmp_path: Path, monkeypatch) -> None:
     repo_root = Path(__file__).resolve().parents[1]
+    settings_path = tmp_path / ".horizon" / "settings.json"
+    settings_path.parent.mkdir()
+    settings_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("HORIZON_HOME", raising=False)
+    monkeypatch.delenv("HORIZON_DATA_DIR", raising=False)
+    monkeypatch.delenv("HORIZON_CONFIG_PATH", raising=False)
 
-    assert resolve_config_path(repo_root) == (repo_root / "data" / "config.json").resolve()
+    assert resolve_config_path(repo_root) == settings_path.resolve()
 
 
 def test_load_mcp_secrets_loads_generic_env_keys(tmp_path: Path, monkeypatch) -> None:

@@ -192,9 +192,8 @@ cd horizon
 
 # Configure environment
 mkdir -p ~/.horizon
-cp .env.example ~/.horizon/secrets.env
-cp data/config.example.json ~/.horizon/config.json
-# Edit ~/.horizon/secrets.env and ~/.horizon/config.json with your API keys and preferences
+cp data/config.example.json ~/.horizon/settings.json
+# Edit ~/.horizon/settings.json with your API keys and preferences
 
 # Run with Docker Compose
 docker-compose run --rm horizon
@@ -211,24 +210,23 @@ docker-compose run --rm horizon --hours 48
 uv run horizon-wizard
 ```
 
-The wizard asks about your interests (e.g. "LLM inference", "嵌入式", "web security") and auto-generates `~/.horizon/config.json`.
+The wizard asks about your interests (e.g. "LLM inference", "嵌入式", "web security") and auto-generates `~/.horizon/settings.json`.
 
 **Option B: Manual configuration**
 
 ```bash
 mkdir -p ~/.horizon
-cp .env.example ~/.horizon/secrets.env        # Add your API keys
-cp data/config.example.json ~/.horizon/config.json  # Customize your sources
+cp data/config.example.json ~/.horizon/settings.json  # Customize sources and add API keys
 ```
 
 Minimal manual configuration:
 
-```jsonc
+```json
 {
   "ai": {
     "provider": "openai",
     "model": "gpt-4",
-    "api_key_env": "OPENAI_API_KEY"
+    "api_key": "sk-..."
   },
   "sources": {
     "rss": [

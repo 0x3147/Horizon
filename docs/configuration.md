@@ -7,10 +7,9 @@ title: Configuration Guide
 
 Horizon Trace stores local user configuration under `~/.horizon` by default:
 
-- `~/.horizon/config.json` for sources, AI provider, filtering, email, webhook, and other user-editable settings.
-- `~/.horizon/secrets.env` for user-owned secrets such as AI API keys, webhook URLs, email passwords, and optional service tokens.
+- `~/.horizon/settings.json` for sources, AI provider, filtering, email, webhook, API keys, and other user-editable settings.
 
-Environment variables such as `HORIZON_HOME`, `HORIZON_CONFIG_PATH`, and `HORIZON_SECRETS_PATH` can still override these paths for advanced local setups.
+Environment variables such as `HORIZON_HOME` and `HORIZON_CONFIG_PATH` can still override these paths for advanced local setups.
 
 ## AI Providers
 
@@ -23,7 +22,7 @@ Configure which AI model scores and summarizes your content.
   "ai": {
     "provider": "anthropic",
     "model": "claude-sonnet-4.5-20250929",
-    "api_key_env": "ANTHROPIC_API_KEY",
+    "api_key": "sk-ant-...",
     "throttle_sec": 0
   }
 }
@@ -36,7 +35,7 @@ Configure which AI model scores and summarizes your content.
   "ai": {
     "provider": "openai",
     "model": "gpt-4",
-    "api_key_env": "OPENAI_API_KEY",
+    "api_key": "sk-...",
     "throttle_sec": 0
   }
 }
@@ -49,15 +48,15 @@ Configure which AI model scores and summarizes your content.
   "ai": {
     "provider": "azure",
     "model": "gpt-4o-production",
-    "api_key_env": "AZURE_OPENAI_API_KEY",
-    "azure_endpoint_env": "AZURE_OPENAI_ENDPOINT",
+    "api_key": "...",
+    "azure_endpoint": "https://your-resource.openai.azure.com",
     "api_version": "2024-10-21",
     "throttle_sec": 0
   }
 }
 ```
 
-Set `AZURE_OPENAI_API_KEY` and `AZURE_OPENAI_ENDPOINT` in `~/.horizon/secrets.env`. The `model` field should be your Azure deployment name, not just the base model family name.
+The `model` field should be your Azure deployment name, not just the base model family name.
 
 **MiniMax**:
 
@@ -66,7 +65,7 @@ Set `AZURE_OPENAI_API_KEY` and `AZURE_OPENAI_ENDPOINT` in `~/.horizon/secrets.en
   "ai": {
     "provider": "minimax",
     "model": "MiniMax-M2.7",
-    "api_key_env": "MINIMAX_API_KEY",
+    "api_key": "...",
     "throttle_sec": 0
   }
 }
@@ -81,17 +80,17 @@ Available models: `MiniMax-M2.7`, `MiniMax-M2.7-highspeed`, `MiniMax-M2.5`, `Min
   "ai": {
     "provider": "ali",
     "model": "qwen-plus",
-    "api_key_env": "DASHSCOPE_API_KEY",
+    "api_key": "...",
     "throttle_sec": 0
   }
 }
 ```
 
-Use the [DashScope compatible-mode](https://help.aliyun.com/zh/dashscope/developer-reference/use-dashscope-by-calling-openai-api) endpoint. Set `DASHSCOPE_API_KEY` in `~/.horizon/secrets.env`. Optional: set `base_url` to override the default `https://dashscope.aliyuncs.com/compatible-mode/v1`.
+Use the [DashScope compatible-mode](https://help.aliyun.com/zh/dashscope/developer-reference/use-dashscope-by-calling-openai-api) endpoint. Optional: set `base_url` to override the default `https://dashscope.aliyuncs.com/compatible-mode/v1`.
 
 ### AI throttling
 
-If your model has a strict per-minute request cap, you can slow the scorer down in `~/.horizon/config.json`:
+If your model has a strict per-minute request cap, you can slow the scorer down in `~/.horizon/settings.json`:
 
 ```json
 {
@@ -112,14 +111,14 @@ If your model has a strict per-minute request cap, you can slow the scorer down 
   "ai": {
     "provider": "anthropic",
     "base_url": "https://your-proxy.com/v1",
-    ...
+    "api_key": "sk-ant-..."
   }
 }
 ```
 
 ## Information Sources
 
-All sources are configured under the top-level `sources` key in `config.json`.
+All sources are configured under the top-level `sources` key in `settings.json`.
 
 ### GitHub
 
@@ -204,13 +203,14 @@ All sources are configured under the top-level `sources` key in `config.json`.
 
 ### Twitter
 
-Requires an [Apify](https://apify.com) account. Set `APIFY_TOKEN` in `~/.horizon/secrets.env`. The free tier includes $5/month of credit, enough for roughly 20,000 tweets.
+Requires an [Apify](https://apify.com) account. Put your Apify token in the Twitter config. The free tier includes $5/month of credit, enough for roughly 20,000 tweets.
 
 ```json
 {
   "sources": {
     "twitter": {
       "enabled": true,
+      "apify_token": "apify_api_...",
       "users": ["karpathy", "ylecun"],
       "fetch_limit": 10,
       "fetch_reply_text": false,
@@ -253,19 +253,19 @@ Content is scored 0-10:
 - `ai_score_threshold`: Only include content scoring >= this value
 - `time_window_hours`: Fetch content from last N hours
 
-## Environment Variable Substitution
+## Secret URLs
 
-RSS feed URLs support `${VAR_NAME}` syntax for secrets. The variable is expanded at runtime from environment variables or `~/.horizon/secrets.env`:
+For a local-only setup, prefer storing private feed URLs directly in `~/.horizon/settings.json`:
 
 ```json
 {
   "name": "LWN.net",
-  "url": "https://lwn.net/headlines/full_text?key=${LWN_KEY}",
+  "url": "https://lwn.net/headlines/full_text?key=your_key",
   "enabled": true
 }
 ```
 
-This way `config.json` can be committed to a public repo without leaking tokens.
+Environment-variable substitution still exists for advanced users, but it is no longer the main client configuration path.
 
 ## Email Subscription
 
@@ -280,7 +280,7 @@ Email delivery is optional and disabled unless `email.enabled` is `true`. Horizo
     "imap_server": "imap.qq.com",
     "imap_port": 993,
     "email_address": "xxx@qq.com",
-    "password_env": "EMAIL_PASSWORD",
+    "password": "your-email-app-password",
     "sender_name": "Horizon Daily",
     "subscribe_keyword": "SUBSCRIBE",
     "unsubscribe_keyword": "UNSUBSCRIBE"
@@ -292,7 +292,7 @@ Email delivery is optional and disabled unless `email.enabled` is `true`. Horizo
 - `smtp_server` / `smtp_port`: SMTP server used to send emails.
 - `imap_server` / `imap_port`: IMAP server used to scan incoming subscription requests.
 - `email_address`: Sender account and mailbox checked for subscription requests.
-- `password_env`: Environment variable containing the email password or app password. Defaults to `EMAIL_PASSWORD`.
+- `password`: Email password or app password, stored locally in `settings.json`.
 - `sender_name`: Display name shown in sent emails.
 - `subscribe_keyword` / `unsubscribe_keyword`: Keywords Horizon looks for in incoming email subjects.
 
@@ -304,7 +304,7 @@ Webhook notification is optional and disabled unless `webhook.enabled` is `true`
 {
   "webhook": {
     "enabled": true,
-    "url_env": "HORIZON_WEBHOOK_URL",
+    "url": "https://example.com/webhook",
     "delivery": "summary",
     "overview_position": "first",
     "platform": "generic",
@@ -320,7 +320,7 @@ Webhook notification is optional and disabled unless `webhook.enabled` is `true`
 ```
 
 - `enabled`: Turns webhook delivery on or off. The default is `false`.
-- `url_env`: Environment variable that contains the webhook URL. For example, set `HORIZON_WEBHOOK_URL=https://...` in `~/.horizon/secrets.env`.
+- `url`: Webhook URL, stored locally in `settings.json`.
 - `delivery`: Controls how messages are sent. Use `summary` for one full message, or `summary_and_items` for one overview message followed by one message per selected item.
 - `overview_position`: Controls where the overview is sent in `summary_and_items` mode. Use `first` for the traditional order, or `last` to send item details in reverse and keep the overview as the newest chat message.
 - `platform`: Optional webhook platform hint. Use `generic` by default, or `feishu` / `lark` to enable platform-specific card rendering.
@@ -392,7 +392,7 @@ To keep the group chat compact while still allowing readers to browse the full b
 {
   "webhook": {
     "enabled": true,
-    "url_env": "HORIZON_WEBHOOK_URL",
+    "url": "https://example.com/webhook",
     "platform": "feishu",
     "layout": "collapsible",
     "fallback_layout": "markdown",

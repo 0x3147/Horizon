@@ -15,7 +15,12 @@ logger = logging.getLogger(__name__)
 class GitHubScraper(BaseScraper):
     """Scraper for GitHub events and releases."""
 
-    def __init__(self, sources: List[GitHubSourceConfig], http_client: httpx.AsyncClient):
+    def __init__(
+        self,
+        sources: List[GitHubSourceConfig],
+        http_client: httpx.AsyncClient,
+        token: str | None = None,
+    ):
         """Initialize GitHub scraper.
 
         Args:
@@ -23,7 +28,7 @@ class GitHubScraper(BaseScraper):
             http_client: Shared async HTTP client
         """
         super().__init__({"sources": sources}, http_client)
-        self.token = os.getenv("GITHUB_TOKEN")
+        self.token = token or os.getenv("GITHUB_TOKEN")
         self.base_url = "https://api.github.com"
 
     def _get_headers(self) -> dict:

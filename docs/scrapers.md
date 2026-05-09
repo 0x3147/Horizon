@@ -156,7 +156,7 @@ Flow:
   "max_tweets_to_expand": 10,
   "reply_min_likes": 5,
   "actor_id": "altimis~scweet",
-  "apify_token_env": "APIFY_TOKEN"
+  "apify_token": "apify_api_..."
 }
 ```
 
@@ -167,8 +167,8 @@ Flow:
 - `max_tweets_to_expand` — cap on reply expansion runs per pipeline cycle, to control Apify credit usage
 - `reply_min_likes` — minimum likes required for a reply to be included
 - `actor_id` — Apify actor ID (default: `altimis~scweet`)
-- `apify_token_env` — environment variable name containing the Apify API token
+- `apify_token` — Apify API token stored locally in `settings.json`
 
-**Authentication**: Set `APIFY_TOKEN` in `~/.horizon/secrets.env`. Get a token at [console.apify.com](https://console.apify.com/account/integrations).
+**Authentication**: Set `apify_token` in `~/.horizon/settings.json`. Get a token at [console.apify.com](https://console.apify.com/account/integrations).
 
 **Extracted data**: tweet text, URL, author, publish time, likes, retweets, replies, views, and (optionally) reply-thread text appended under `--- Top Comments ---`.

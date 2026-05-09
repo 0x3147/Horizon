@@ -75,10 +75,12 @@ def resolve_horizon_path(explicit: str | None = None) -> Path:
 
 
 def resolve_config_path(horizon_path: Path, config_path: str | None = None) -> Path:
-    """Resolve config path, defaulting to <horizon>/data/config.json."""
+    """Resolve config path, defaulting to ~/.horizon/settings.json."""
 
     if not config_path:
-        path = (horizon_path / "data/config.json").resolve()
+        horizon_home = Path(os.getenv("HORIZON_HOME", str(Path.home() / ".horizon"))).expanduser()
+        data_dir = Path(os.getenv("HORIZON_DATA_DIR", str(horizon_home))).expanduser()
+        path = Path(os.getenv("HORIZON_CONFIG_PATH", str(data_dir / "settings.json"))).expanduser().resolve()
     else:
         raw = Path(config_path).expanduser()
         if raw.is_absolute():
@@ -160,7 +162,7 @@ def make_storage(runtime: HorizonRuntime, config_path: Path) -> Any:
     """Build Horizon storage manager bound to config's data directory."""
 
     data_dir = str(config_path.parent.resolve())
-    return runtime.StorageManager(data_dir=data_dir)
+    return runtime.StorageManager(data_dir=data_dir, config_path=config_path)
 
 
 def make_orchestrator(runtime: HorizonRuntime, config: Any, storage: Any) -> Any:

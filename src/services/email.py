@@ -25,7 +25,7 @@ class EmailManager:
 
     def __init__(self, config: EmailConfig, console=None):
         self.config = config
-        self.pwd = os.getenv(self.config.password_env)
+        self.pwd = self.config.password or os.getenv(self.config.password_env)
         if console is None:
             try:
                 from rich.console import Console
@@ -39,10 +39,8 @@ class EmailManager:
             self.console = console
 
         if not self.pwd and self.config.enabled:
-            logger.warning(
-                f"Environment variable {self.config.password_env} not set. Email features may fail."
-            )
-            self.console.print(f"[yellow]Warning: Environment variable {self.config.password_env} not set. Email features may fail.[/yellow]")
+            logger.warning("Email password is not configured. Email features may fail.")
+            self.console.print("[yellow]Warning: Email password is not configured. Email features may fail.[/yellow]")
 
     def check_subscriptions(self, storage_manager):
         """Checks inbox for subscription requests and updates subscriber list."""

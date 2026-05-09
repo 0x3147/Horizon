@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
+from src.models import AIProvider, Config, FilteringConfig, SourcesConfig, AIConfig, GitHubSourceConfig, EmailConfig, WebhookConfig
 from src.models import ContentItem, SourceType
 from src.mcp.server import hz_get_metrics
 from src.mcp.service import HorizonPipelineService
@@ -42,6 +43,54 @@ def test_validate_config_smoke(tmp_path: Path) -> None:
     assert result["config_path"] == str(config_path.resolve())
     assert result["enabled_sources"]
     assert result["missing_env"] == []
+
+
+def test_validate_config_accepts_inline_local_secrets(tmp_path: Path, monkeypatch) -> None:
+    for name in ("OPENAI_API_KEY", "GITHUB_TOKEN", "EMAIL_PASSWORD", "HORIZON_WEBHOOK_URL"):
+        monkeypatch.delenv(name, raising=False)
+
+    config = Config(
+        version="1.0",
+        ai=AIConfig(
+            provider=AIProvider.OPENAI,
+            model="gpt-4",
+            api_key="sk-local",
+        ),
+        github_token="ghp-local",
+        sources=SourcesConfig(
+            github=[GitHubSourceConfig(type="user_events", username="torvalds")],
+        ),
+        filtering=FilteringConfig(ai_score_threshold=7.0, time_window_hours=24),
+        email=EmailConfig(
+            enabled=True,
+            smtp_server="smtp.example.com",
+            imap_server="imap.example.com",
+            email_address="user@example.com",
+            password="mail-password",
+        ),
+        webhook=WebhookConfig(enabled=True, url="https://example.com/webhook"),
+    )
+    service = HorizonPipelineService(runs_root=tmp_path / "mcp-runs")
+    monkeypatch.setattr(
+        service,
+        "_build_context",
+        lambda **kwargs: (
+            SimpleNamespace(
+                horizon_path=tmp_path,
+                config_path=tmp_path / "settings.json",
+                runtime=SimpleNamespace(),
+                config=config,
+            ),
+            ["github"],
+            [],
+        ),
+    )
+
+    result = asyncio.run(service.validate_config(check_env=True))
+
+    assert result["missing_env"] == []
+    assert result["warnings"] == []
+    assert result["ai"]["api_key_configured"] is True
 
 
 def test_get_effective_config_can_filter_sources(tmp_path: Path) -> None:

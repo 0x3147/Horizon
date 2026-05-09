@@ -234,7 +234,7 @@ class HorizonOrchestrator:
 
             # GitHub sources
             if self.config.sources.github:
-                github_scraper = GitHubScraper(self.config.sources.github, client)
+                github_scraper = GitHubScraper(self.config.sources.github, client, token=self.config.github_token)
                 tasks.append(self._fetch_with_progress("GitHub", github_scraper, since))
 
             # Hacker News

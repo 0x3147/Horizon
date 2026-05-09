@@ -44,7 +44,7 @@ def main():
         settings = load_environment_files()
 
         # Initialize storage manager
-        storage = StorageManager(data_dir=str(settings.data_dir))
+        storage = StorageManager(data_dir=str(settings.data_dir), config_path=settings.config_path)
 
         # Load configuration
         try:
@@ -85,10 +85,11 @@ def print_config_template():
   "ai": {
     "provider": "anthropic",
     "model": "claude-sonnet-4.5-20250929",
-    "api_key_env": "ANTHROPIC_API_KEY",
+    "api_key": "your_api_key_here",
     "temperature": 0.3,
     "max_tokens": 4096
   },
+  "github_token": "your_github_token_here",
   "sources": {
     "github": [
       {
@@ -117,9 +118,7 @@ def print_config_template():
   }
 }
 
-Also create ~/.horizon/secrets.env with:
-ANTHROPIC_API_KEY=your_api_key_here
-GITHUB_TOKEN=your_github_token_here (optional but recommended)
+Save this as ~/.horizon/settings.json.
 """
     console.print(template)
 

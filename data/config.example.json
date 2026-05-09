@@ -3,11 +3,12 @@
   "ai": {
     "provider": "openai",
     "model": "gpt-4",
-    "api_key_env": "OPENAI_API_KEY",
+    "api_key": "",
     "temperature": 0.3,
     "max_tokens": 4096,
     "throttle_sec": 0
   },
+  "github_token": "",
   "email": {
     "enabled": false,
     "smtp_server": "smtp.qq.com",
@@ -15,6 +16,7 @@
     "imap_server": "imap.qq.com",
     "imap_port": 993,
     "email_address": "xxx@qq.com",
+    "password": "",
     "sender_name": "Horizon Daily",
     "subscribe_keyword": "SUBSCRIBE",
     "unsubscribe_keyword": "UNSUBSCRIBE"
@@ -76,6 +78,7 @@
     },
     "twitter": {
       "enabled": false,
+      "apify_token": "",
       "users": ["karpathy", "ylecun"],
       "fetch_limit": 10,
       "fetch_reply_text": false,
@@ -90,7 +93,7 @@
   },
   "webhook": {
     "enabled": false,
-    "url_env": "HORIZON_WEBHOOK_URL",
+    "url": "",
     "delivery": "summary",
     "overview_position": "first",
     "platform": "generic",

@@ -31,6 +31,34 @@ def _default_runs_root() -> Path:
     return Path(__file__).resolve().parents[2] / "data" / "mcp-runs"
 
 
+def _has_configured_value(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    return True
+
+
+def _env_value_is_set(env_name: str | None) -> bool:
+    return bool(env_name and os.getenv(env_name))
+
+
+def _secret_is_configured(inline_value: Any, env_name: str | None) -> bool:
+    return _has_configured_value(inline_value) or _env_value_is_set(env_name)
+
+
+def _track_missing_secret(
+    missing_env: list[str],
+    warnings: list[str],
+    env_name: str | None,
+    label: str,
+) -> None:
+    if env_name:
+        missing_env.append(env_name)
+    else:
+        warnings.append(f"{label} is not configured.")
+
+
 @dataclass
 class PipelineContext:
     """Resolved execution context per call."""
@@ -176,22 +204,32 @@ class HorizonPipelineService:
         missing_env: list[str] = []
 
         if check_env:
-            required = [ctx.config.ai.api_key_env]
-            for key in required:
-                if not os.getenv(key):
-                    missing_env.append(key)
+            if not _secret_is_configured(ctx.config.ai.api_key, ctx.config.ai.api_key_env):
+                _track_missing_secret(missing_env, warnings, ctx.config.ai.api_key_env, "AI API key")
 
-            if ctx.config.sources.github and not os.getenv("GITHUB_TOKEN"):
-                warnings.append("GITHUB_TOKEN is not set; GitHub fetching may hit strict rate limits.")
+            if ctx.config.sources.github and not (
+                _has_configured_value(getattr(ctx.config, "github_token", None))
+                or os.getenv("GITHUB_TOKEN")
+            ):
+                warnings.append("GitHub token is not configured; GitHub fetching may hit strict rate limits.")
 
             if getattr(ctx.config, "email", None) and ctx.config.email and ctx.config.email.enabled:
-                pwd_key = ctx.config.email.password_env
-                if not os.getenv(pwd_key):
-                    missing_env.append(pwd_key)
+                if not _secret_is_configured(ctx.config.email.password, ctx.config.email.password_env):
+                    _track_missing_secret(
+                        missing_env,
+                        warnings,
+                        ctx.config.email.password_env,
+                        "Email password",
+                    )
 
             if getattr(ctx.config, "webhook", None) and ctx.config.webhook and ctx.config.webhook.enabled:
-                if ctx.config.webhook.url_env and not os.getenv(ctx.config.webhook.url_env):
-                    missing_env.append(ctx.config.webhook.url_env)
+                if not _secret_is_configured(ctx.config.webhook.url, ctx.config.webhook.url_env):
+                    _track_missing_secret(
+                        missing_env,
+                        warnings,
+                        ctx.config.webhook.url_env,
+                        "Webhook URL",
+                    )
 
         return {
             "horizon_path": str(ctx.horizon_path),
@@ -200,7 +238,7 @@ class HorizonPipelineService:
                 "provider": ctx.config.ai.provider.value,
                 "model": ctx.config.ai.model,
                 "languages": list(ctx.config.ai.languages),
-                "api_key_env": ctx.config.ai.api_key_env,
+                "api_key_configured": _secret_is_configured(ctx.config.ai.api_key, ctx.config.ai.api_key_env),
             },
             "filtering": {
                 "ai_score_threshold": ctx.config.filtering.ai_score_threshold,

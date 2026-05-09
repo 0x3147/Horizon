@@ -7,11 +7,11 @@ from src.core.settings import AppSettings
 
 
 def settings(tmp_path):
-    data_dir = tmp_path / "data"
+    data_dir = tmp_path / ".horizon"
     return AppSettings(
         data_dir=data_dir,
         db_path=data_dir / "horizon.db",
-        config_path=data_dir / "config.json",
+        config_path=data_dir / "settings.json",
         host="127.0.0.1",
         port=8765,
     )
@@ -23,7 +23,7 @@ def minimal_config():
         "ai": {
             "provider": "openai",
             "model": "gpt-4",
-            "api_key_env": "OPENAI_API_KEY",
+            "api_key": "sk-local",
         },
         "sources": {
             "github": [],
@@ -47,6 +47,7 @@ def test_get_config(tmp_path):
     assert response.status_code == 200
     assert response.json()["success"] is True
     assert response.json()["data"]["ai"]["model"] == "gpt-4"
+    assert response.json()["data"]["ai"]["api_key"] == "sk-local"
 
 
 def test_put_config_validates_and_saves(tmp_path):
@@ -56,6 +57,14 @@ def test_put_config_validates_and_saves(tmp_path):
     client = TestClient(create_app(s))
     updated = minimal_config()
     updated["filtering"]["ai_score_threshold"] = 8.0
+    updated["webhook"] = {"enabled": True, "url": "https://example.com/webhook"}
+    updated["email"] = {
+        "enabled": False,
+        "smtp_server": "smtp.example.com",
+        "imap_server": "imap.example.com",
+        "email_address": "user@example.com",
+        "password": "mail-password",
+    }
 
     response = client.put("/config", json=updated)
 
@@ -63,6 +72,9 @@ def test_put_config_validates_and_saves(tmp_path):
     assert response.json()["data"]["filtering"]["ai_score_threshold"] == 8.0
     saved = json.loads(s.config_path.read_text(encoding="utf-8"))
     assert saved["filtering"]["ai_score_threshold"] == 8.0
+    assert saved["ai"]["api_key"] == "sk-local"
+    assert saved["webhook"]["url"] == "https://example.com/webhook"
+    assert saved["email"]["password"] == "mail-password"
 
 
 def test_validate_config_rejects_invalid_payload(tmp_path):

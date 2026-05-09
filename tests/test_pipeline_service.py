@@ -21,7 +21,7 @@ def settings(tmp_path):
           "ai": {
             "provider": "openai",
             "model": "gpt-4",
-            "api_key_env": "OPENAI_API_KEY",
+            "api_key": "sk-local",
             "languages": ["en"]
           },
           "sources": {

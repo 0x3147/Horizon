@@ -10,9 +10,17 @@ from ..models import Config
 class StorageManager:
     """Manages file-based storage for configuration and state."""
 
-    def __init__(self, data_dir: str = "data"):
-        self.data_dir = Path(data_dir)
-        self.config_path = self.data_dir / "config.json"
+    def __init__(self, data_dir: str | Path = "data", config_path: str | Path | None = None):
+        self.data_dir = Path(data_dir).expanduser()
+        if config_path is None:
+            self.config_path = self.data_dir / "settings.json"
+        else:
+            resolved_config_path = Path(config_path).expanduser()
+            self.config_path = (
+                resolved_config_path
+                if resolved_config_path.is_absolute()
+                else self.data_dir / resolved_config_path
+            )
         self.summaries_dir = self.data_dir / "summaries"
 
         self.data_dir.mkdir(parents=True, exist_ok=True)
@@ -31,11 +39,11 @@ class StorageManager:
         return Config.model_validate(data)
 
     def save_config(self, config: Config, backup: bool = True) -> Path:
-        """Save configuration to config.json, optionally backing up the existing file.
+        """Save configuration to the local settings file, optionally backing up the existing file.
 
         Args:
             config: The Config object to save.
-            backup: If True and config.json exists, copy it to config.json.bak first.
+            backup: If True and the settings file exists, copy it to a .bak file first.
 
         Returns:
             Path to the saved config file.
@@ -43,6 +51,7 @@ class StorageManager:
         if backup and self.config_path.exists():
             shutil.copy2(self.config_path, self.config_path.with_suffix(".json.bak"))
 
+        self.config_path.parent.mkdir(parents=True, exist_ok=True)
         with open(self.config_path, "w", encoding="utf-8") as f:
             json.dump(config.model_dump(mode="json"), f, indent=2, ensure_ascii=False)
             f.write("\n")

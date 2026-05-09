@@ -92,7 +92,7 @@ async def _run_test(webhook_config, lang: str, dry_run: bool, delivery_override:
     if dry_run:
         console.print(f"\n[bold yellow]── Dry Run (lang={lang}) ──[/bold yellow]")
         console.print(f"  [cyan]Webhook enabled:[/cyan] {effective_config.enabled}")
-        console.print(f"  [cyan]URL env var:[/cyan] {effective_config.url_env}")
+        console.print(f"  [cyan]URL configured:[/cyan] {bool(notifier.url)}")
         console.print(f"  [cyan]Delivery mode:[/cyan] {effective_config.delivery}")
         console.print(f"  [cyan]Platform:[/cyan] {effective_config.platform}")
         console.print(f"  [cyan]Layout:[/cyan] {effective_config.layout}")
@@ -174,7 +174,7 @@ def main() -> None:
             sys.exit(1)
 
         if not config.webhook or not config.webhook.enabled:
-            console.print("[yellow]Webhook is not enabled in config.json.[/yellow]")
+            console.print("[yellow]Webhook is not enabled in settings.json.[/yellow]")
             console.print(f"Set [cyan]webhook.enabled = true[/cyan] in {settings.config_path} to enable it.")
             sys.exit(1)
 

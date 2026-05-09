@@ -13,6 +13,13 @@ from ..models import AIConfig, AIProvider
 from .tokens import record_usage
 
 
+def _resolve_secret(inline_value: Optional[str], env_name: Optional[str], label: str) -> str:
+    value = inline_value or (os.getenv(env_name) if env_name else None)
+    if not value:
+        raise ValueError(f"Missing {label}: set it in ~/.horizon/settings.json")
+    return value
+
+
 class AIClient(ABC):
     """Abstract base class for AI clients."""
 
@@ -49,9 +56,7 @@ class AnthropicClient(AIClient):
         """
         self.config = config
 
-        api_key = os.getenv(config.api_key_env)
-        if not api_key:
-            raise ValueError(f"Missing API key: {config.api_key_env}")
+        api_key = _resolve_secret(config.api_key, config.api_key_env, "API key")
 
         kwargs = {"api_key": api_key}
         if config.base_url:
@@ -111,9 +116,7 @@ class OpenAIClient(AIClient):
         """
         self.config = config
 
-        api_key = os.getenv(config.api_key_env)
-        if not api_key:
-            raise ValueError(f"Missing API key: {config.api_key_env}")
+        api_key = _resolve_secret(config.api_key, config.api_key_env, "API key")
 
         kwargs = {"api_key": api_key}
         if config.base_url:
@@ -186,14 +189,12 @@ class AzureOpenAIClient(AIClient):
         """
         self.config = config
 
-        api_key = os.getenv(config.api_key_env)
-        if not api_key:
-            raise ValueError(f"Missing API key: {config.api_key_env}")
-        if not config.azure_endpoint_env:
-            raise ValueError("azure_endpoint_env is required for azure provider")
-        azure_endpoint = os.getenv(config.azure_endpoint_env)
-        if not azure_endpoint:
-            raise ValueError(f"Missing Azure endpoint: {config.azure_endpoint_env}")
+        api_key = _resolve_secret(config.api_key, config.api_key_env, "API key")
+        azure_endpoint = _resolve_secret(
+            config.azure_endpoint,
+            config.azure_endpoint_env,
+            "Azure endpoint",
+        )
         if not config.api_version:
             raise ValueError("api_version is required for azure provider")
 
@@ -308,9 +309,7 @@ class MiniMaxClient(AIClient):
         """
         self.config = config
 
-        api_key = os.getenv(config.api_key_env)
-        if not api_key:
-            raise ValueError(f"Missing API key: {config.api_key_env}")
+        api_key = _resolve_secret(config.api_key, config.api_key_env, "API key")
 
         kwargs = {
             "api_key": api_key,
@@ -380,9 +379,7 @@ class AliClient(AIClient):
         """
         self.config = config
 
-        api_key = os.getenv(config.api_key_env)
-        if not api_key:
-            raise ValueError(f"Missing API key: {config.api_key_env}")
+        api_key = _resolve_secret(config.api_key, config.api_key_env, "API key")
 
         kwargs = {
             "api_key": api_key,
@@ -438,9 +435,7 @@ class GeminiClient(AIClient):
         """
         self.config = config
 
-        api_key = os.getenv(config.api_key_env)
-        if not api_key:
-            raise ValueError(f"Missing API key: {config.api_key_env}")
+        api_key = _resolve_secret(config.api_key, config.api_key_env, "API key")
 
         self.client = genai.Client(api_key=api_key)
         self.model = config.model

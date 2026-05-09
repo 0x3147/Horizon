@@ -193,9 +193,8 @@ cd horizon
 
 # 配置环境
 mkdir -p ~/.horizon
-cp .env.example ~/.horizon/secrets.env
-cp data/config.example.json ~/.horizon/config.json
-# 编辑 ~/.horizon/secrets.env 和 ~/.horizon/config.json，填入你的 API 密钥和偏好设置
+cp data/config.example.json ~/.horizon/settings.json
+# 编辑 ~/.horizon/settings.json，填入你的 API 密钥和偏好设置
 
 # 使用 Docker Compose 运行
 docker-compose run --rm horizon
@@ -212,24 +211,23 @@ docker-compose run --rm horizon --hours 48
 uv run horizon-wizard
 ```
 
-向导会询问你的兴趣（如"LLM 推理"、"嵌入式"、"web 安全"），自动推荐并生成 `~/.horizon/config.json`，还可选让 AI 补充推荐小众源。若你想分享信息源，请前往 [horizon1123.top](https://horizon1123.top/)。
+向导会询问你的兴趣（如"LLM 推理"、"嵌入式"、"web 安全"），自动推荐并生成 `~/.horizon/settings.json`，还可选让 AI 补充推荐小众源。若你想分享信息源，请前往 [horizon1123.top](https://horizon1123.top/)。
 
 **方式 B：手动配置**
 
 ```bash
 mkdir -p ~/.horizon
-cp .env.example ~/.horizon/secrets.env        # 添加 API 密钥
-cp data/config.example.json ~/.horizon/config.json  # 自定义信息源
+cp data/config.example.json ~/.horizon/settings.json  # 自定义信息源并添加 API 密钥
 ```
 
 最小手动配置示例：
 
-```jsonc
+```json
 {
   "ai": {
     "provider": "openai",
     "model": "gpt-4",
-    "api_key_env": "OPENAI_API_KEY"
+    "api_key": "sk-..."
   },
   "sources": {
     "rss": [

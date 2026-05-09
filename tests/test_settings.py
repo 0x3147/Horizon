@@ -10,7 +10,6 @@ def test_load_settings_defaults_to_horizon_home(tmp_path, monkeypatch):
         "HORIZON_DATA_DIR",
         "HORIZON_DB_PATH",
         "HORIZON_CONFIG_PATH",
-        "HORIZON_SECRETS_PATH",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -21,8 +20,7 @@ def test_load_settings_defaults_to_horizon_home(tmp_path, monkeypatch):
     assert settings.horizon_home == expected_home
     assert settings.data_dir == expected_home
     assert settings.db_path == expected_home / "horizon.db"
-    assert settings.config_path == expected_home / "config.json"
-    assert settings.secrets_path == expected_home / "secrets.env"
+    assert settings.config_path == expected_home / "settings.json"
 
 
 def test_load_settings_allows_explicit_overrides(tmp_path, monkeypatch):
@@ -31,13 +29,11 @@ def test_load_settings_allows_explicit_overrides(tmp_path, monkeypatch):
     monkeypatch.setenv("HORIZON_HOME", str(custom_home))
     monkeypatch.setenv("HORIZON_DATA_DIR", str(custom_data))
     monkeypatch.setenv("HORIZON_DB_PATH", str(tmp_path / "db.sqlite"))
-    monkeypatch.setenv("HORIZON_CONFIG_PATH", str(tmp_path / "config.json"))
-    monkeypatch.setenv("HORIZON_SECRETS_PATH", str(tmp_path / "secrets.env"))
+    monkeypatch.setenv("HORIZON_CONFIG_PATH", str(tmp_path / "settings.json"))
 
     settings = load_settings()
 
     assert settings.horizon_home == custom_home
     assert settings.data_dir == custom_data
     assert settings.db_path == tmp_path / "db.sqlite"
-    assert settings.config_path == tmp_path / "config.json"
-    assert settings.secrets_path == tmp_path / "secrets.env"
+    assert settings.config_path == tmp_path / "settings.json"

@@ -31,7 +31,7 @@ LABELS = {
             "- The AI score threshold is too high\n"
             "- Your information sources need expansion\n\n"
             "Consider:\n"
-            "1. Lowering the `ai_score_threshold` in config.json\n"
+            "1. Lowering the `ai_score_threshold` in settings.json\n"
             "2. Adding more diverse information sources\n"
             "3. Checking if the AI model is working correctly\n"
         ),
@@ -49,7 +49,7 @@ LABELS = {
             "- AI 评分阈值设置过高\n"
             "- 信息源种类有待扩充\n\n"
             "建议：\n"
-            "1. 在 config.json 中降低 `ai_score_threshold`\n"
+            "1. 在 settings.json 中降低 `ai_score_threshold`\n"
             "2. 添加更多多样化的信息源\n"
             "3. 检查 AI 模型是否正常工作\n"
         ),

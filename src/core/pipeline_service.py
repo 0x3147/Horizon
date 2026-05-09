@@ -54,7 +54,7 @@ class PipelineService:
             )
             self.store.add_log(run_id, "info", "run", "started")
 
-            storage = StorageManager(str(self.settings.data_dir))
+            storage = StorageManager(str(self.settings.data_dir), config_path=self.settings.config_path)
             orchestrator = self.orchestrator_factory(config, storage)
 
             raw_items = await self._fetch_items(run_id, orchestrator, hours, cancel_event)
