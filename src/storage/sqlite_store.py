@@ -453,6 +453,65 @@ class SQLiteStore:
             row = conn.execute("SELECT * FROM summaries WHERE id = ?", (summary_id,)).fetchone()
         return dict(row) if row else None
 
+    def save_schedule(self, schedule: dict[str, Any]) -> dict[str, Any]:
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO schedules (
+                    id, name, enabled, cron_expr, cron_label, timezone,
+                    hours_window, source_filter_json, last_run_id, last_run_at,
+                    next_run_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    enabled = excluded.enabled,
+                    cron_expr = excluded.cron_expr,
+                    cron_label = excluded.cron_label,
+                    timezone = excluded.timezone,
+                    hours_window = excluded.hours_window,
+                    source_filter_json = excluded.source_filter_json,
+                    last_run_id = excluded.last_run_id,
+                    last_run_at = excluded.last_run_at,
+                    next_run_at = excluded.next_run_at,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    schedule["id"],
+                    schedule["name"],
+                    1 if schedule.get("enabled", True) else 0,
+                    schedule["cron_expr"],
+                    schedule.get("cron_label"),
+                    schedule["timezone"],
+                    schedule.get("hours_window", 24),
+                    _json_dumps(schedule.get("source_filter") or {}),
+                    schedule.get("last_run_id"),
+                    schedule.get("last_run_at"),
+                    schedule.get("next_run_at"),
+                ),
+            )
+            row = conn.execute("SELECT * FROM schedules WHERE id = ?", (schedule["id"],)).fetchone()
+            conn.commit()
+        return _schedule_from_row(row)
+
+    def list_schedules(self) -> list[dict[str, Any]]:
+        with self.connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM schedules ORDER BY created_at DESC, id DESC"
+            ).fetchall()
+        return [_schedule_from_row(row) for row in rows]
+
+    def get_schedule(self, schedule_id: str) -> dict[str, Any] | None:
+        with self.connect() as conn:
+            row = conn.execute("SELECT * FROM schedules WHERE id = ?", (schedule_id,)).fetchone()
+        return _schedule_from_row(row) if row else None
+
+    def delete_schedule(self, schedule_id: str) -> bool:
+        with self.connect() as conn:
+            cursor = conn.execute("DELETE FROM schedules WHERE id = ?", (schedule_id,))
+            conn.commit()
+        return cursor.rowcount > 0
+
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -503,4 +562,11 @@ def _item_from_row(row: sqlite3.Row) -> dict[str, Any]:
     data["background"] = _json_loads(data.pop("background_json", None), {})
     data["community_discussion"] = _json_loads(data.pop("community_discussion_json", None), {})
     data["citations"] = _json_loads(data.pop("citations_json", None), [])
+    return data
+
+
+def _schedule_from_row(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["enabled"] = bool(data["enabled"])
+    data["source_filter"] = _json_loads(data.pop("source_filter_json", None), {})
     return data
