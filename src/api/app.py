@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -13,17 +14,28 @@ from src.api.routes.summaries import router as summaries_router
 from src.api.schemas import ok
 from src.core.settings import AppSettings, load_settings
 from src.core.task_manager import TaskManager
+from src.core.schedule_service import SchedulerRuntime
 from src.storage.sqlite_store import SQLiteStore
 
 
 def create_app(settings: AppSettings | None = None) -> FastAPI:
     settings = settings or load_settings()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        app.state.scheduler_runtime.start()
+        try:
+            yield
+        finally:
+            app.state.scheduler_runtime.shutdown()
+
     app = FastAPI(
         title="Horizon Local API",
         version="0.1.0",
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        lifespan=lifespan,
     )
     app.state.settings = settings
     app.state.data_dir = Path(settings.data_dir)
@@ -32,6 +44,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.state.store = SQLiteStore(settings.db_path)
     app.state.store.initialize()
     app.state.task_manager = TaskManager()
+    app.state.scheduler_runtime = SchedulerRuntime(app.state.store, settings)
     register_exception_handlers(app)
 
     @app.get("/health")

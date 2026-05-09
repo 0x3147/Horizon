@@ -4,9 +4,11 @@ from datetime import datetime
 from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from src.core.errors import ErrorCode, HorizonApiError, capture_service_errors
+from src.core.settings import AppSettings
 from src.storage.sqlite_store import SQLiteStore
 
 
@@ -52,3 +54,45 @@ class ScheduleService:
         }
         self.store.save_schedule(schedule)
         return schedule
+
+
+class SchedulerRuntime:
+    def __init__(self, store: SQLiteStore, settings: AppSettings):
+        self.store = store
+        self.settings = settings
+        self.scheduler = AsyncIOScheduler()
+
+    def start(self) -> None:
+        if self.scheduler.running:
+            return
+        self.reload()
+        self.scheduler.start()
+
+    def shutdown(self) -> None:
+        if self.scheduler.running:
+            self.scheduler.shutdown(wait=False)
+
+    def reload(self) -> None:
+        self.scheduler.remove_all_jobs()
+        for schedule in self.store.list_schedules():
+            if not schedule["enabled"]:
+                continue
+            trigger = CronTrigger.from_crontab(
+                schedule["cron_expr"],
+                timezone=ZoneInfo(schedule["timezone"]),
+            )
+            self.scheduler.add_job(
+                self._run_schedule,
+                trigger=trigger,
+                id=schedule["id"],
+                args=[schedule],
+                max_instances=1,
+                coalesce=True,
+                replace_existing=True,
+            )
+
+    async def _run_schedule(self, schedule: dict) -> None:
+        from src.core.pipeline_service import PipelineService
+
+        pipeline = PipelineService(self.store, self.settings)
+        await pipeline.run(hours=schedule["hours_window"])
