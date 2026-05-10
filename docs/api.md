@@ -49,11 +49,13 @@ Errors use the same envelope with `success: false`.
 
 ## Endpoints
 
+MVP endpoints intentionally use only `GET` and `POST`.
+
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/health` | Health check |
 | `GET` | `/config` | Read current config |
-| `PUT` | `/config` | Validate and save config |
+| `POST` | `/config` | Validate and save config |
 | `POST` | `/config/validate` | Validate a config payload |
 | `POST` | `/runs` | Start a background pipeline run |
 | `GET` | `/runs` | List runs |
@@ -67,7 +69,7 @@ Errors use the same envelope with `success: false`.
 | `POST` | `/schedules/validate-cron` | Validate a cron expression |
 | `POST` | `/schedules` | Create a schedule |
 | `GET` | `/schedules` | List schedules |
-| `DELETE` | `/schedules/{schedule_id}` | Delete a schedule |
+| `POST` | `/schedules/{schedule_id}/delete` | Delete a schedule |
 
 ## Cron
 

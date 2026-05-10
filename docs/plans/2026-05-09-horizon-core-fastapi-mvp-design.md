@@ -555,7 +555,7 @@ ApiResponse
 
 ```text
 GET  /config
-PUT  /config
+POST /config
 POST /config/validate
 ```
 
@@ -570,7 +570,7 @@ MVP 实现：
 
 ```text
 GET  /config
-PUT  /config
+POST /config
 POST /config/validate
 ```
 
@@ -656,11 +656,10 @@ POST /runs/{run_id}/summaries
 GET    /schedules
 POST   /schedules
 GET    /schedules/{schedule_id}
-PUT    /schedules/{schedule_id}
-DELETE /schedules/{schedule_id}
 POST   /schedules/{schedule_id}/enable
 POST   /schedules/{schedule_id}/disable
 POST   /schedules/{schedule_id}/run-now
+POST   /schedules/{schedule_id}/delete
 POST   /schedules/validate-cron
 ```
 
@@ -669,7 +668,7 @@ MVP 可先实现：
 ```text
 GET    /schedules
 POST   /schedules
-DELETE /schedules/{schedule_id}
+POST   /schedules/{schedule_id}/delete
 POST   /schedules/validate-cron
 ```
 

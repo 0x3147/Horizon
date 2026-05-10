@@ -22,6 +22,26 @@ def test_validate_cron_endpoint(tmp_path):
     assert response.json()["data"]["valid"] is True
 
 
+def test_validate_cron_missing_fields_uses_invalid_request(tmp_path):
+    client = TestClient(create_app(settings(tmp_path)), raise_server_exceptions=False)
+
+    response = client.post("/schedules/validate-cron", json={})
+
+    assert response.status_code == 422
+    assert response.json()["success"] is False
+    assert response.json()["errorCode"] == 1001
+
+
+def test_create_schedule_missing_fields_uses_invalid_request(tmp_path):
+    client = TestClient(create_app(settings(tmp_path)), raise_server_exceptions=False)
+
+    response = client.post("/schedules", json={})
+
+    assert response.status_code == 422
+    assert response.json()["success"] is False
+    assert response.json()["errorCode"] == 1001
+
+
 def test_create_and_list_schedule(tmp_path):
     client = TestClient(create_app(settings(tmp_path)))
 
@@ -41,3 +61,21 @@ def test_create_and_list_schedule(tmp_path):
     schedule_id = response.json()["data"]["id"]
     list_response = client.get("/schedules")
     assert list_response.json()["data"]["items"][0]["id"] == schedule_id
+
+
+def test_delete_schedule_uses_post_action(tmp_path):
+    client = TestClient(create_app(settings(tmp_path)))
+    response = client.post(
+        "/schedules",
+        json={
+            "name": "Daily",
+            "cron_expr": "0 8 * * *",
+            "timezone": "Asia/Shanghai",
+        },
+    )
+    schedule_id = response.json()["data"]["id"]
+
+    delete_response = client.post(f"/schedules/{schedule_id}/delete")
+
+    assert delete_response.status_code == 200
+    assert delete_response.json()["data"]["deleted"] is True

@@ -50,7 +50,7 @@ def test_get_config(tmp_path):
     assert response.json()["data"]["ai"]["api_key"] == "sk-local"
 
 
-def test_put_config_validates_and_saves(tmp_path):
+def test_post_config_validates_and_saves(tmp_path):
     s = settings(tmp_path)
     s.data_dir.mkdir()
     s.config_path.write_text(json.dumps(minimal_config()), encoding="utf-8")
@@ -66,7 +66,7 @@ def test_put_config_validates_and_saves(tmp_path):
         "password": "mail-password",
     }
 
-    response = client.put("/config", json=updated)
+    response = client.post("/config", json=updated)
 
     assert response.status_code == 200
     assert response.json()["data"]["filtering"]["ai_score_threshold"] == 8.0

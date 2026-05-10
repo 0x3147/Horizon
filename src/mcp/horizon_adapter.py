@@ -13,6 +13,8 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from src.core.settings import default_horizon_home
+
 from .errors import HorizonMcpError
 
 
@@ -78,7 +80,7 @@ def resolve_config_path(horizon_path: Path, config_path: str | None = None) -> P
     """Resolve config path, defaulting to ~/.horizon/settings.json."""
 
     if not config_path:
-        horizon_home = Path(os.getenv("HORIZON_HOME", str(Path.home() / ".horizon"))).expanduser()
+        horizon_home = Path(os.getenv("HORIZON_HOME", str(default_horizon_home()))).expanduser()
         data_dir = Path(os.getenv("HORIZON_DATA_DIR", str(horizon_home))).expanduser()
         path = Path(os.getenv("HORIZON_CONFIG_PATH", str(data_dir / "settings.json"))).expanduser().resolve()
     else:

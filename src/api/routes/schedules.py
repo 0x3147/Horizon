@@ -1,6 +1,15 @@
 from fastapi import APIRouter, Request
 
-from src.api.schemas import ok
+from src.api.schemas import (
+    ApiResponse,
+    CronValidationData,
+    CronValidationRequest,
+    DeleteResultData,
+    ScheduleCreateRequest,
+    ScheduleData,
+    ScheduleListData,
+    ok,
+)
 from src.core.errors import ErrorCode, HorizonApiError
 from src.core.schedule_service import ScheduleService
 from src.storage.sqlite_store import SQLiteStore
@@ -21,31 +30,48 @@ def service(request: Request) -> ScheduleService:
     return ScheduleService(store(request))
 
 
-@router.post("/validate-cron")
-def validate_cron(payload: dict, request: Request) -> dict:
-    result = service(request).validate_cron(payload["cron_expr"], payload["timezone"])
+@router.post(
+    "/validate-cron",
+    response_model=ApiResponse[CronValidationData],
+    summary="Validate a cron expression",
+)
+def validate_cron(payload: CronValidationRequest, request: Request) -> dict:
+    result = service(request).validate_cron(payload.cron_expr, payload.timezone)
     return ok(result)
 
 
-@router.post("", status_code=201)
-def create_schedule(payload: dict, request: Request) -> dict:
+@router.post(
+    "",
+    status_code=201,
+    response_model=ApiResponse[ScheduleData],
+    summary="Create a schedule",
+)
+def create_schedule(payload: ScheduleCreateRequest, request: Request) -> dict:
     schedule = service(request).create_schedule(
-        name=payload["name"],
-        cron_expr=payload["cron_expr"],
-        timezone_name=payload["timezone"],
-        hours_window=payload.get("hours_window", 24),
-        cron_label=payload.get("cron_label"),
-        enabled=payload.get("enabled", True),
+        name=payload.name,
+        cron_expr=payload.cron_expr,
+        timezone_name=payload.timezone,
+        hours_window=payload.hours_window,
+        cron_label=payload.cron_label,
+        enabled=payload.enabled,
     )
     return ok(schedule, code=201)
 
 
-@router.get("")
+@router.get(
+    "",
+    response_model=ApiResponse[ScheduleListData],
+    summary="List schedules",
+)
 def list_schedules(request: Request) -> dict:
     return ok({"items": store(request).list_schedules()})
 
 
-@router.delete("/{schedule_id}")
+@router.post(
+    "/{schedule_id}/delete",
+    response_model=ApiResponse[DeleteResultData],
+    summary="Delete a schedule",
+)
 def delete_schedule(schedule_id: str, request: Request) -> dict:
     deleted = store(request).delete_schedule(schedule_id)
     if not deleted:

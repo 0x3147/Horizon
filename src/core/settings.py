@@ -20,7 +20,7 @@ class AppSettings:
 
 
 def load_settings() -> AppSettings:
-    horizon_home = _path_from_env("HORIZON_HOME", Path.home() / DEFAULT_HOME_DIR_NAME)
+    horizon_home = _path_from_env("HORIZON_HOME", default_horizon_home())
     data_dir = _path_from_env("HORIZON_DATA_DIR", horizon_home)
     db_path = _path_from_env("HORIZON_DB_PATH", data_dir / "horizon.db")
     config_path = _path_from_env("HORIZON_CONFIG_PATH", data_dir / "settings.json")
@@ -38,6 +38,12 @@ def load_settings() -> AppSettings:
 
 def load_environment_files(settings: AppSettings | None = None) -> AppSettings:
     return settings or load_settings()
+
+
+def default_horizon_home() -> Path:
+    home = os.getenv("HOME")
+    base_home = Path(home).expanduser() if home else Path.home()
+    return base_home / DEFAULT_HOME_DIR_NAME
 
 
 def _path_from_env(name: str, default: Path) -> Path:

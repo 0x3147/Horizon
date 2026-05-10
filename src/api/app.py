@@ -11,11 +11,21 @@ from src.api.routes.items import router as items_router
 from src.api.routes.runs import router as runs_router
 from src.api.routes.schedules import router as schedules_router
 from src.api.routes.summaries import router as summaries_router
-from src.api.schemas import ok
+from src.api.schemas import ApiResponse, HealthData, ok
 from src.core.settings import AppSettings, load_settings
 from src.core.task_manager import TaskManager
 from src.core.schedule_service import SchedulerRuntime
 from src.storage.sqlite_store import SQLiteStore
+
+
+OPENAPI_TAGS = [
+    {"name": "health", "description": "Local API health checks."},
+    {"name": "config", "description": "Read, validate, and save Horizon configuration."},
+    {"name": "schedules", "description": "Manage local cron schedules."},
+    {"name": "runs", "description": "Start and inspect pipeline runs."},
+    {"name": "items", "description": "Query persisted content items."},
+    {"name": "summaries", "description": "Read generated summaries."},
+]
 
 
 def create_app(settings: AppSettings | None = None) -> FastAPI:
@@ -31,10 +41,12 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
 
     app = FastAPI(
         title="Horizon Local API",
+        description="Local-first Horizon API for the future desktop client.",
         version="0.1.0",
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        openapi_tags=OPENAPI_TAGS,
         lifespan=lifespan,
     )
     app.state.settings = settings
@@ -47,7 +59,12 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.state.scheduler_runtime = SchedulerRuntime(app.state.store, settings)
     register_exception_handlers(app)
 
-    @app.get("/health")
+    @app.get(
+        "/health",
+        response_model=ApiResponse[HealthData],
+        tags=["health"],
+        summary="Check API health",
+    )
     def health() -> dict:
         return ok({"status": "ok"})
 
