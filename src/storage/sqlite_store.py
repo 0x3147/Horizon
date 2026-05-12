@@ -45,6 +45,9 @@ SCHEMA_SQL = (
         metadata_json TEXT NOT NULL DEFAULT '{}',
         stage TEXT NOT NULL DEFAULT 'raw',
         is_selected INTEGER NOT NULL DEFAULT 0,
+        is_read INTEGER NOT NULL DEFAULT 0,
+        is_bookmarked INTEGER NOT NULL DEFAULT 0,
+        is_archived INTEGER NOT NULL DEFAULT 0,
         duplicate_of_item_id TEXT,
         PRIMARY KEY (run_id, id),
         FOREIGN KEY (run_id) REFERENCES runs(id) ON DELETE CASCADE
@@ -123,6 +126,15 @@ class SQLiteStore:
             for statement in SCHEMA_SQL:
                 conn.execute(statement)
             conn.execute("INSERT OR IGNORE INTO schema_migrations (version) VALUES (1)")
+            # migration v2: add item flag columns
+            applied = {row[0] for row in conn.execute("SELECT version FROM schema_migrations").fetchall()}
+            if 2 not in applied:
+                for col in ("is_read", "is_bookmarked", "is_archived"):
+                    try:
+                        conn.execute(f"ALTER TABLE items ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
+                    except Exception:
+                        pass
+                conn.execute("INSERT OR IGNORE INTO schema_migrations (version) VALUES (2)")
             conn.commit()
 
     def create_run(self, run_id: str, hours: int, config_snapshot: dict[str, Any] | None = None) -> None:
@@ -386,6 +398,31 @@ class SQLiteStore:
             ).fetchall()
         return [_item_from_row(row) for row in rows]
 
+    def update_item_flags(
+        self,
+        item_id: str,
+        run_id: str | None = None,
+        **flags: bool | None,
+    ) -> bool:
+        allowed = {"is_selected", "is_read", "is_bookmarked", "is_archived"}
+        updates = []
+        values: list[Any] = []
+        for key, value in flags.items():
+            if key in allowed and value is not None:
+                updates.append(f"{key} = ?")
+                values.append(1 if value else 0)
+        if not updates:
+            return False
+        where = "id = ?"
+        values.append(item_id)
+        if run_id:
+            where += " AND run_id = ?"
+            values.append(run_id)
+        with self.connect() as conn:
+            cursor = conn.execute(f"UPDATE items SET {', '.join(updates)} WHERE {where}", values)
+            conn.commit()
+        return cursor.rowcount > 0
+
     def get_item(self, item_id: str, run_id: str | None = None) -> dict[str, Any] | None:
         where = ["i.id = ?"]
         params: list[Any] = [item_id]
@@ -566,7 +603,8 @@ def _run_from_row(row: sqlite3.Row) -> dict[str, Any]:
 def _item_from_row(row: sqlite3.Row) -> dict[str, Any]:
     data = dict(row)
     data["metadata"] = _json_loads(data.pop("metadata_json", None), {})
-    data["is_selected"] = bool(data["is_selected"])
+    for flag in ("is_selected", "is_read", "is_bookmarked", "is_archived"):
+        data[flag] = bool(data.get(flag, 0))
     data["ai_tags"] = _json_loads(data.pop("ai_tags_json", None), [])
     data["detailed_summary"] = _json_loads(data.pop("detailed_summary_json", None), {})
     data["background"] = _json_loads(data.pop("background_json", None), {})

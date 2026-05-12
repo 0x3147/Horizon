@@ -2,7 +2,7 @@ import json
 
 from fastapi import APIRouter, Query, Request
 
-from src.api.schemas import ApiResponse, ItemData, ItemListData, ok
+from src.api.schemas import ApiResponse, ItemData, ItemListData, ItemPatchRequest, ok
 from src.core.errors import ErrorCode, HorizonApiError
 
 router = APIRouter(prefix="/items", tags=["items"])
@@ -65,4 +65,29 @@ def get_item(
     item = request.app.state.store.get_item(item_id, run_id=run_id)
     if item is None:
         raise HorizonApiError(ErrorCode.ITEM_NOT_FOUND, "Item not found")
+    return ok(item)
+
+
+@router.patch(
+    "/{item_id}",
+    response_model=ApiResponse[ItemData],
+    summary="Update item flags (selected, read, bookmarked, archived)",
+)
+def patch_item(
+    item_id: str,
+    body: ItemPatchRequest,
+    request: Request,
+    run_id: str | None = Query(default=None, description="Optional run id for disambiguation."),
+) -> dict:
+    updated = request.app.state.store.update_item_flags(
+        item_id,
+        run_id=run_id,
+        is_selected=body.is_selected,
+        is_read=body.is_read,
+        is_bookmarked=body.is_bookmarked,
+        is_archived=body.is_archived,
+    )
+    if not updated:
+        raise HorizonApiError(ErrorCode.ITEM_NOT_FOUND, "Item not found")
+    item = request.app.state.store.get_item(item_id, run_id=run_id)
     return ok(item)

@@ -92,6 +92,9 @@ class ItemData(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     stage: str
     is_selected: bool
+    is_read: bool = False
+    is_bookmarked: bool = False
+    is_archived: bool = False
     duplicate_of_item_id: str | None = None
     ai_score: float | None = None
     ai_reason: str | None = None
@@ -101,6 +104,13 @@ class ItemData(BaseModel):
     background: dict[str, Any] = Field(default_factory=dict)
     community_discussion: dict[str, Any] = Field(default_factory=dict)
     citations: list[Any] = Field(default_factory=list)
+
+
+class ItemPatchRequest(BaseModel):
+    is_selected: bool | None = None
+    is_read: bool | None = None
+    is_bookmarked: bool | None = None
+    is_archived: bool | None = None
 
 
 class ItemListData(BaseModel):
