@@ -16,7 +16,7 @@ class ConfigService:
     @capture_service_errors("config", ErrorCode.CONFIG_VALIDATION_FAILED)
     def get_config(self) -> Config:
         if not self.config_path.exists():
-            raise HorizonApiError(ErrorCode.CONFIG_FILE_NOT_FOUND, "Config file not found")
+            return Config()
         payload = json.loads(self.config_path.read_text(encoding="utf-8"))
         return Config.model_validate(payload)
 
