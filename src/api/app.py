@@ -11,6 +11,7 @@ from src.api.routes.items import router as items_router
 from src.api.routes.runs import router as runs_router
 from src.api.routes.schedules import router as schedules_router
 from src.api.routes.summaries import router as summaries_router
+from src.api.routes.writing import router as writing_router
 from src.api.schemas import ApiResponse, HealthData, ok
 from src.core.settings import AppSettings, load_settings
 from src.core.task_manager import TaskManager
@@ -25,6 +26,7 @@ OPENAPI_TAGS = [
     {"name": "runs", "description": "Start and inspect pipeline runs."},
     {"name": "items", "description": "Query persisted content items."},
     {"name": "summaries", "description": "Read generated summaries."},
+    {"name": "writing", "description": "Generate reports and blog drafts from collected items."},
 ]
 
 
@@ -73,5 +75,6 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.include_router(runs_router)
     app.include_router(items_router)
     app.include_router(summaries_router)
+    app.include_router(writing_router)
 
     return app

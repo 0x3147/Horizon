@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Query, Request
 
 from src.api.schemas import ApiResponse, ItemData, ItemListData, ok
@@ -21,9 +23,19 @@ def list_items(
     stage: str | None = Query(default=None, description="Filter by pipeline stage."),
     tag: str | None = Query(default=None, description="Filter by AI tag."),
     q: str | None = Query(default=None, description="Search title, content, and AI summary."),
+    domain: str | None = Query(default=None, description="Filter by domain (resolves to keyword matching)."),
     limit: int = Query(default=50, ge=1, le=200, description="Maximum items to return."),
     offset: int = Query(default=0, ge=0, description="Number of items to skip."),
 ) -> dict:
+    keywords = None
+    if domain:
+        config_path = request.app.state.config_path
+        if config_path.exists():
+            config = json.loads(config_path.read_text())
+            for d in config.get("domains", []):
+                if d.get("id") == domain:
+                    keywords = d.get("keywords")
+                    break
     items = request.app.state.store.query_items(
         run_id=run_id,
         source_type=source_type,
@@ -33,6 +45,7 @@ def list_items(
         stage=stage,
         tag=tag,
         q=q,
+        keywords=keywords,
         limit=limit,
         offset=offset,
     )

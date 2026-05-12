@@ -161,6 +161,119 @@ class DeleteResultData(BaseModel):
     deleted: bool
 
 
+# ===================== Writing API Schemas =====================
+
+class ReportGenerateRequest(BaseModel):
+    """生成日报/周报请求"""
+    time_range: str = Field(
+        default="today",
+        description="时间范围: 'today' | 'yesterday' | 'this_week' | 'last_week' | 'custom'",
+        examples=["today", "this_week"],
+    )
+    start_date: str | None = Field(
+        default=None,
+        description="自定义起始日期 (ISO 格式), time_range='custom' 时必需",
+        examples=["2026-05-10"],
+    )
+    end_date: str | None = Field(
+        default=None,
+        description="自定义结束日期 (ISO 格式), time_range='custom' 时必需",
+        examples=["2026-05-12"],
+    )
+    domains: list[str] | None = Field(
+        default=None,
+        description="关注的领域列表, 为空则使用用户配置的所有领域",
+        examples=[["ai", "frontend"]],
+    )
+    style: str = Field(
+        default="professional",
+        description="报告风格: 'professional' | 'casual' | 'data_driven'",
+        examples=["professional"],
+    )
+    language: str = Field(
+        default="zh",
+        description="输出语言: 'zh' | 'en'",
+        examples=["zh"],
+    )
+
+
+class ReportGenerateResponse(BaseModel):
+    """日报/周报生成结果"""
+    markdown: str = Field(description="生成的 Markdown 报告内容")
+    title: str = Field(description="报告标题")
+    item_count: int = Field(description="报告中包含的条目数")
+    generated_at: str = Field(description="生成时间 ISO 格式")
+
+
+class BlogDraftRequest(BaseModel):
+    """生成博文草稿请求"""
+    item_id: str = Field(description="基于哪条新闻生成博文")
+    run_id: str | None = Field(
+        default=None, description="所属 run_id, 不传则查最新 run"
+    )
+    style: str = Field(
+        default="in_depth",
+        description="博文风格: 'in_depth' | 'analysis' | 'brief'",
+        examples=["in_depth"],
+    )
+    language: str = Field(
+        default="zh",
+        description="输出语言: 'zh' | 'en'",
+    )
+
+
+class BlogDraftResponse(BaseModel):
+    """博文草稿生成结果"""
+    markdown: str = Field(description="生成的 Markdown 博文草稿")
+    title_suggestions: list[str] = Field(description="标题建议列表")
+    references: list[str] = Field(description="引用的来源 URL 列表")
+    generated_at: str = Field(description="生成时间 ISO 格式")
+
+
+# ===================== Domain / Tag Schemas =====================
+
+class DomainInfo(BaseModel):
+    """领域定义"""
+    id: str = Field(description="领域唯一标识", examples=["ai"])
+    label: str = Field(description="领域显示名称", examples=["AI与大数据"])
+    keywords: list[str] = Field(
+        description="匹配关键词列表",
+        examples=[["machine learning", "LLM", "GPT", "AI"]],
+    )
+    enabled: bool = Field(default=True, description="是否启用")
+
+
+class DomainConfigData(BaseModel):
+    """领域配置"""
+    domains: list[DomainInfo] = Field(description="所有领域定义")
+
+
+# ===================== Bookmark Schemas (第一期定义，第二期实现) =====================
+
+class BookmarkCreateRequest(BaseModel):
+    """收藏文章请求"""
+    item_id: str = Field(description="要收藏的内容条目 ID")
+    run_id: str | None = Field(default=None, description="所属 run_id")
+
+
+class BookmarkData(BaseModel):
+    """收藏条目数据"""
+    id: str = Field(description="收藏记录 ID")
+    item_id: str = Field(description="内容条目 ID")
+    title: str = Field(description="文章标题")
+    url: str = Field(description="文章 URL")
+    source_type: str = Field(description="来源类型")
+    ai_summary: str | None = Field(default=None, description="AI 摘要")
+    ai_tags: list[str] | None = Field(default=None, description="AI 标签")
+    note: str | None = Field(default=None, description="用户笔记")
+    bookmarked_at: str = Field(description="收藏时间 ISO 格式")
+
+
+class BookmarkNoteRequest(BaseModel):
+    """给收藏添加笔记"""
+    note: str = Field(description="笔记内容")
+
+
 def ok(data: T, code: int = 200) -> dict:
     return ApiResponse[T](
         code=code,

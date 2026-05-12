@@ -329,6 +329,7 @@ class SQLiteStore:
         stage: str | None = None,
         tag: str | None = None,
         q: str | None = None,
+        keywords: list[str] | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
@@ -358,6 +359,15 @@ class SQLiteStore:
             where.append("(LOWER(i.title) LIKE ? OR LOWER(i.content) LIKE ? OR LOWER(a.ai_summary) LIKE ?)")
             needle = f"%{q.lower()}%"
             params.extend([needle, needle, needle])
+        if keywords:
+            keyword_conditions = " OR ".join(
+                ["(LOWER(i.title) LIKE ? OR LOWER(a.ai_summary) LIKE ? OR a.ai_tags_json LIKE ?)"]
+                * len(keywords)
+            )
+            where.append(f"({keyword_conditions})")
+            for kw in keywords:
+                needle = f"%{kw.lower()}%"
+                params.extend([needle, needle, needle])
         where_sql = f"WHERE {' AND '.join(where)}" if where else ""
         params.extend([limit, offset])
         with self.connect() as conn:
