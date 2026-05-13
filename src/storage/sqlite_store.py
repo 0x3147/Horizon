@@ -246,6 +246,10 @@ class SQLiteStore:
         with self.connect() as conn:
             for item in items:
                 metadata = dict(getattr(item, "metadata", {}) or {})
+                detailed_summary = _rich_text_field(item, metadata, "detailed_summary")
+                background = _rich_text_field(item, metadata, "background")
+                community_discussion = _rich_text_field(item, metadata, "community_discussion")
+                citations = _citations_field(item, metadata)
                 conn.execute(
                     """
                     INSERT INTO items (
@@ -312,10 +316,10 @@ class SQLiteStore:
                         getattr(item, "ai_reason", None),
                         getattr(item, "ai_summary", None),
                         _json_dumps(getattr(item, "ai_tags", []) or []),
-                        _json_dumps(getattr(item, "detailed_summary", {}) or {}),
-                        _json_dumps(getattr(item, "background", {}) or {}),
-                        _json_dumps(getattr(item, "community_discussion", {}) or {}),
-                        _json_dumps(getattr(item, "citations", []) or []),
+                        _json_dumps(detailed_summary),
+                        _json_dumps(background),
+                        _json_dumps(community_discussion),
+                        _json_dumps(citations),
                     ),
                 )
             count_column = {
@@ -594,6 +598,85 @@ def _source_name(metadata: dict[str, Any]) -> str | None:
     return None
 
 
+def _rich_text_field(item: Any, metadata: dict[str, Any], base: str) -> dict[str, Any]:
+    direct = _normalize_rich_text_value(getattr(item, base, None))
+    if direct:
+        return direct
+    return _rich_text_from_metadata(metadata, base)
+
+
+def _rich_text_from_metadata(metadata: dict[str, Any], base: str) -> dict[str, Any]:
+    values: dict[str, Any] = {}
+    for lang in ("en", "zh"):
+        value = _normalize_text_value(metadata.get(f"{base}_{lang}"))
+        if value:
+            values[lang] = value
+
+    for key in sorted(metadata):
+        prefix = f"{base}_"
+        if not key.startswith(prefix):
+            continue
+        lang = key[len(prefix):]
+        if not lang or lang in values:
+            continue
+        value = _normalize_text_value(metadata.get(key))
+        if value:
+            values[lang] = value
+
+    fallback = _normalize_text_value(metadata.get(base))
+    if fallback and not values:
+        values["default"] = fallback
+    return values
+
+
+def _normalize_rich_text_value(value: Any) -> dict[str, Any]:
+    if not value:
+        return {}
+    if isinstance(value, dict):
+        return {str(key): val for key, val in value.items() if _has_content(val)}
+    normalized = _normalize_text_value(value)
+    return {"default": normalized} if normalized else {}
+
+
+def _normalize_text_value(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        return text or None
+    if isinstance(value, dict):
+        text = value.get("text")
+        if isinstance(text, str):
+            text = text.strip()
+            return text or None
+        return value if value else None
+    return value if _has_content(value) else None
+
+
+def _citations_field(item: Any, metadata: dict[str, Any]) -> list[Any]:
+    direct = getattr(item, "citations", None)
+    if direct:
+        return direct if isinstance(direct, list) else [direct]
+    return _citations_from_metadata(metadata)
+
+
+def _citations_from_metadata(metadata: dict[str, Any]) -> list[Any]:
+    sources = metadata.get("sources") or metadata.get("citations") or []
+    if isinstance(sources, list):
+        return sources
+    return [sources] if sources else []
+
+
+def _has_content(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (list, dict, tuple, set)):
+        return bool(value)
+    return True
+
+
 def _run_from_row(row: sqlite3.Row) -> dict[str, Any]:
     data = dict(row)
     data["config_snapshot"] = _json_loads(data.pop("config_snapshot_json", None), {})
@@ -610,6 +693,14 @@ def _item_from_row(row: sqlite3.Row) -> dict[str, Any]:
     data["background"] = _json_loads(data.pop("background_json", None), {})
     data["community_discussion"] = _json_loads(data.pop("community_discussion_json", None), {})
     data["citations"] = _json_loads(data.pop("citations_json", None), [])
+    if not data["detailed_summary"]:
+        data["detailed_summary"] = _rich_text_from_metadata(data["metadata"], "detailed_summary")
+    if not data["background"]:
+        data["background"] = _rich_text_from_metadata(data["metadata"], "background")
+    if not data["community_discussion"]:
+        data["community_discussion"] = _rich_text_from_metadata(data["metadata"], "community_discussion")
+    if not data["citations"]:
+        data["citations"] = _citations_from_metadata(data["metadata"])
     return data
 
 

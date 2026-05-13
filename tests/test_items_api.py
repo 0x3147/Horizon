@@ -12,7 +12,7 @@ def settings(tmp_path):
     return AppSettings(data_dir, data_dir / "horizon.db", data_dir / "config.json", "127.0.0.1", 8765)
 
 
-def item(item_id="rss:1", title="AI keyword", score=8.5, tags=None):
+def item(item_id="rss:1", title="AI keyword", score=8.5, tags=None, metadata=None):
     return ContentItem(
         id=item_id,
         source_type=SourceType.RSS,
@@ -25,7 +25,7 @@ def item(item_id="rss:1", title="AI keyword", score=8.5, tags=None):
         ai_reason="Useful",
         ai_summary="Summary keyword",
         ai_tags=tags or ["ai", "infra"],
-        metadata={"feed_name": "Example Feed"},
+        metadata=metadata or {"feed_name": "Example Feed"},
     )
 
 
@@ -65,6 +65,38 @@ def test_get_item_by_id(tmp_path):
 
     assert response.status_code == 200
     assert response.json()["data"]["title"] == "AI keyword"
+
+
+def test_get_item_returns_per_item_enrichment_fields(tmp_path):
+    app = create_app(settings(tmp_path))
+    app.state.store.create_run("run-1", hours=24, config_snapshot={})
+    app.state.store.save_items(
+        "run-1",
+        [
+            item(
+                metadata={
+                    "feed_name": "Example Feed",
+                    "detailed_summary_zh": "这条新闻的详细总结。",
+                    "background_zh": "这条新闻的背景。",
+                    "community_discussion_zh": "这条新闻的评论讨论。",
+                    "sources": [{"url": "https://example.com/source", "title": "Source title"}],
+                },
+            )
+        ],
+        stage="enriched",
+        selected=True,
+    )
+    client = TestClient(app)
+
+    response = client.get("/items/rss:1")
+
+    assert response.status_code == 200
+    assert response.json()["data"]["detailed_summary"] == {"zh": "这条新闻的详细总结。"}
+    assert response.json()["data"]["background"] == {"zh": "这条新闻的背景。"}
+    assert response.json()["data"]["community_discussion"] == {"zh": "这条新闻的评论讨论。"}
+    assert response.json()["data"]["citations"] == [
+        {"url": "https://example.com/source", "title": "Source title"}
+    ]
 
 
 def test_get_missing_item_returns_business_error(tmp_path):
