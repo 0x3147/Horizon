@@ -170,3 +170,59 @@ Respond with valid JSON only. Each _en field must be in English; each _zh field 
   "community_discussion_zh": "<用中文写1-3句话，或空字符串>",
   "sources": ["<url from search results>", "..."]
 }}"""
+
+
+REPORT_SYSTEM_PROMPT = """You are a senior editor for Horizon Trace. Write concise, accurate Markdown reports from curated technical news.
+
+Rules:
+- Use only facts present in the provided items.
+- Do not invent companies, dates, numbers, or URLs.
+- Prefer analysis of why a development matters over restating summaries.
+- Return Markdown only."""
+
+REPORT_USER_PROMPT_TEMPLATE = """Please write a {length_label} {style_label} {time_range_label} report in {language_label} based on the following {item_count} curated news items.
+
+Requirements:
+1. Use Markdown. Start with `## {time_range_label}{style_label}报告`.
+2. Group items by theme with `###` headings.
+3. For each item, explain what it means and why it is worth reading in 1-2 sentences.
+4. End each item with `[原文]({{url}})` using the item's real URL.
+5. End with `## 一句话总结`.
+{custom_prompt_block}
+
+Input items as JSON:
+{items_json}
+"""
+
+BLOG_SYSTEM_PROMPT = """You are a technical blog editor for Horizon Trace. Turn curated news into a thoughtful Markdown draft.
+
+Rules:
+- Use only the provided item data.
+- Keep a clear argument and structure.
+- Do not fabricate references.
+- Return Markdown only."""
+
+BLOG_USER_PROMPT_TEMPLATE = """Please write a {length_label} {style_label} blog draft in {language_label} based on this news item.
+
+Requirements:
+1. Use Markdown.
+2. Start with an HTML comment containing 3 title candidates: `<!-- titles: ["t1", "t2", "t3"] -->`.
+3. Include sections for background, core argument, impact, and references.
+4. Use the original URL in the references section.
+{custom_prompt_block}
+
+Input item as JSON:
+{items_json}
+"""
+
+BLOG_COMPILE_USER_PROMPT_TEMPLATE = """Please find a common theme, tension, or opposing viewpoints across the following {item_count} news items, then write a {length_label} {style_label} blog draft in {language_label}.
+
+Requirements:
+1. Do not list items one by one. Build a structured argument.
+2. Start with an HTML comment containing 3 title candidates: `<!-- titles: ["t1", "t2", "t3"] -->`.
+3. Include a `## 参考来源` section listing every provided URL.
+{custom_prompt_block}
+
+Input items as JSON:
+{items_json}
+"""

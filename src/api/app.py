@@ -59,6 +59,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.state.store.initialize()
     app.state.task_manager = TaskManager()
     app.state.scheduler_runtime = SchedulerRuntime(app.state.store, settings)
+    app.state.writing_service = None
     register_exception_handlers(app)
 
     @app.get(

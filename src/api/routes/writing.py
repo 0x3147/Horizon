@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Request
 
+from src.ai.writer import create_writing_service
 from src.api.schemas import (
     ApiResponse,
     BlogDraftRequest,
@@ -15,6 +17,8 @@ from src.api.schemas import (
     fail,
     ok,
 )
+from src.core.config_service import ConfigService
+from src.core.errors import ErrorCode, HorizonApiError
 
 router = APIRouter(prefix="/write", tags=["writing"])
 
@@ -55,9 +59,12 @@ async def generate_report(
     else:
         return fail(400, 40002, f"Unknown time_range: {payload.time_range}")
 
-    # Fetch selected items; store.query_items lacks native date filtering so we filter in Python
-    items = store.query_items(selected_only=True, limit=200)
-    items = _filter_by_date(items, start, end)
+    if payload.item_ids:
+        items = _items_by_ids(store, payload.item_ids)
+    else:
+        # Fetch selected items; store.query_items lacks native date filtering so we filter in Python
+        items = store.query_items(selected_only=True, limit=200)
+        items = _filter_by_date(items, start, end)
 
     # Filter by domains if specified
     if payload.domains:
@@ -92,7 +99,11 @@ async def generate_report(
             )
         )
 
-    markdown = _build_report_markdown(items, payload, start, end)
+    try:
+        markdown = await _get_writing_service(request).compose_report(items, payload)
+    except Exception as exc:
+        raise _writing_generation_error(exc) from exc
+
     return ok(
         ReportGenerateResponse(
             markdown=markdown,
@@ -108,18 +119,43 @@ async def generate_blog_draft(payload: BlogDraftRequest, request: Request) -> di
     """Generate a blog post draft from a specific news item."""
     store = request.app.state.store
 
+    if payload.compile_mode:
+        if not payload.item_ids:
+            return fail(400, 40003, "compile_mode requires item_ids")
+        items = _items_by_ids(store, payload.item_ids, run_id=payload.run_id)
+        missing = [item_id for item_id in payload.item_ids if not any(i.get("id") == item_id for i in items)]
+        if missing:
+            return fail(404, 40401, f"Items not found: {', '.join(missing)}")
+        try:
+            writing_service = _get_writing_service(request)
+            draft = await writing_service.compose_blog(items, payload, compile_mode=True)
+            suggestions = _extract_title_suggestions(draft) or await writing_service.suggest_titles(items, payload.style)
+        except Exception as exc:
+            raise _writing_generation_error(exc) from exc
+        return ok(
+            BlogDraftResponse(
+                markdown=draft,
+                title_suggestions=suggestions,
+                references=[item.get("url", "") for item in items if item.get("url")],
+                generated_at=datetime.now(timezone.utc).isoformat(),
+            )
+        )
+
+    if not payload.item_id:
+        return fail(400, 40004, "item_id is required when compile_mode is false")
+
     item = store.get_item(payload.item_id, run_id=payload.run_id)
     if not item:
         return fail(404, 40401, f"Item {payload.item_id} not found")
 
-    title = item.get("title", "未命名")
-    summary = item.get("ai_summary", "")
-    tags = item.get("ai_tags", [])
     url = item.get("url", "")
-    source = item.get("source_type", "")
 
-    draft = _build_blog_draft(title, summary, tags, url, source, payload.style)
-    suggestions = _suggest_titles(title, payload.style)
+    try:
+        writing_service = _get_writing_service(request)
+        draft = await writing_service.compose_blog([item], payload, compile_mode=False)
+        suggestions = _extract_title_suggestions(draft) or await writing_service.suggest_titles([item], payload.style)
+    except Exception as exc:
+        raise _writing_generation_error(exc) from exc
 
     return ok(
         BlogDraftResponse(
@@ -153,100 +189,46 @@ def _report_title(request: ReportGenerateRequest) -> str:
     return f"{time_label}{style_label}"
 
 
-def _build_report_markdown(
-    items: list[dict],
-    request: ReportGenerateRequest,
-    start: datetime,
-    end: datetime,
-) -> str:
-    """Build a Markdown report from items grouped by first AI tag."""
-    title = _report_title(request)
-    start_str = start.strftime("%Y-%m-%d")
-    end_str = end.strftime("%Y-%m-%d")
-    date_line = start_str if start_str == end_str else f"{start_str} ~ {end_str}"
+def _get_writing_service(request: Request):
+    injected = getattr(request.app.state, "writing_service", None)
+    if injected is not None:
+        return injected
 
-    lines = [f"# {title}", "", f"> {date_line} | 共 {len(items)} 篇精选", ""]
-
-    grouped: dict[str, list[dict]] = {}
-    for item in items:
-        tags = item.get("ai_tags") or []
-        group_key = tags[0] if tags else "其他"
-        grouped.setdefault(group_key, []).append(item)
-
-    for tag, group_items in grouped.items():
-        lines.append(f"## {tag}")
-        lines.append("")
-        for item in group_items:
-            item_title = item.get("title", "未命名")
-            item_url = item.get("url", "")
-            item_summary = item.get("ai_summary", "")
-            item_score = item.get("ai_score", 0)
-            score_stars = "⭐" * min(5, max(1, int((item_score or 0) / 2)))
-            source = item.get("source_type", "")
-
-            lines.append(f"### {item_title}")
-            if item_url:
-                lines.append("")
-                lines.append(f"[原文链接]({item_url}) | 来源: {source} | {score_stars}")
-            if item_summary:
-                lines.append("")
-                lines.append(f"{item_summary}")
-            lines.append("")
-
-    return "\n".join(lines)
+    config = ConfigService(request.app.state.config_path).get_config()
+    return create_writing_service(config.ai)
 
 
-def _build_blog_draft(
-    title: str,
-    summary: str,
-    tags: list[str],
-    url: str,
-    source: str,
-    style: str,
-) -> str:
-    """Build a structured blog draft from item data."""
-    lines = [
-        f"# {title}",
-        "",
-        f"> 本文基于 Horizon 新闻雷达自动生成，原文来源：[{source}]({url})",
-        "",
-        "## 背景",
-        "",
-        summary or "暂无摘要信息。",
-        "",
-        "## 核心观点",
-        "",
-        "（在此处展开你的分析和观点）",
-        "",
-        "## 影响分析",
-        "",
-        "（分析该事件对行业的影响）",
-        "",
-        "## 参考来源",
-        "",
-        f"- [{title}]({url})",
-        "",
-    ]
-    if tags:
-        lines.append(f"标签: {' '.join('#' + t for t in tags)}")
-        lines.append("")
-
-    return "\n".join(lines)
+def _writing_generation_error(exc: Exception) -> HorizonApiError:
+    message = f"生成失败：{exc}。请检查 AI 配置 → 工作台模型后重试。"
+    return HorizonApiError(ErrorCode.WRITING_GENERATION_FAILED, message, http_status=500)
 
 
-def _suggest_titles(title: str, style: str) -> list[str]:
-    """Suggest alternative titles for the blog post."""
-    style_prefix = {
-        "in_depth": "深度解析：",
-        "analysis": "行业分析：",
-        "brief": "快讯：",
-    }
-    prefix = style_prefix.get(style, "")
-    return [
-        f"{prefix}{title}",
-        f"{title} — 你需要知道的一切",
-        f"解读 {title}",
-    ]
+def _extract_title_suggestions(markdown: str) -> list[str]:
+    match = re.search(r"<!--\s*titles:\s*(\[.*?\])\s*-->", markdown, flags=re.DOTALL)
+    if not match:
+        return []
+
+    try:
+        parsed = json.loads(match.group(1))
+    except json.JSONDecodeError:
+        return []
+
+    if not isinstance(parsed, list):
+        return []
+    return [str(title).strip() for title in parsed if str(title).strip()][:3]
+
+
+def _items_by_ids(store, item_ids: list[str], run_id: str | None = None) -> list[dict]:
+    items: list[dict] = []
+    seen: set[str] = set()
+    for item_id in item_ids:
+        if item_id in seen:
+            continue
+        seen.add(item_id)
+        item = store.get_item(item_id, run_id=run_id)
+        if item:
+            items.append(item)
+    return items
 
 
 def _filter_by_date(items: list[dict], start: datetime, end: datetime) -> list[dict]:

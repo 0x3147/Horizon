@@ -63,6 +63,12 @@ class AIConfig(BaseModel):
     azure_endpoint: Optional[str] = None
     azure_endpoint_env: Optional[str] = None
     api_version: Optional[str] = None
+    # Optional writing-specific model settings. Missing values fall back to the
+    # primary scoring/enrichment model settings above.
+    writing_provider: Optional[AIProvider] = None
+    writing_model: Optional[str] = None
+    writing_api_key: Optional[str] = None
+    writing_api_key_env: Optional[str] = None
 
 
 class GitHubSourceConfig(BaseModel):

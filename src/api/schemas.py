@@ -205,6 +205,21 @@ class ReportGenerateRequest(BaseModel):
         description="输出语言: 'zh' | 'en'",
         examples=["zh"],
     )
+    length: str = Field(
+        default="medium",
+        description="报告长度: 'brief' | 'medium' | 'deep'",
+        examples=["medium"],
+    )
+    custom_prompt: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="追加到写作提示词末尾的自定义要求",
+    )
+    item_ids: list[str] | None = Field(
+        default=None,
+        description="显式指定参与生成的内容条目 ID 列表",
+        examples=[["rss:1", "rss:2"]],
+    )
 
 
 class ReportGenerateResponse(BaseModel):
@@ -217,7 +232,13 @@ class ReportGenerateResponse(BaseModel):
 
 class BlogDraftRequest(BaseModel):
     """生成博文草稿请求"""
-    item_id: str = Field(description="基于哪条新闻生成博文")
+    item_id: str | None = Field(default=None, description="基于哪条新闻生成单篇博文")
+    item_ids: list[str] | None = Field(
+        default=None,
+        description="汇编模式下参与生成的内容条目 ID 列表",
+        examples=[["rss:1", "rss:2"]],
+    )
+    compile_mode: bool = Field(default=False, description="是否启用多条新闻汇编模式")
     run_id: str | None = Field(
         default=None, description="所属 run_id, 不传则查最新 run"
     )
@@ -229,6 +250,15 @@ class BlogDraftRequest(BaseModel):
     language: str = Field(
         default="zh",
         description="输出语言: 'zh' | 'en'",
+    )
+    length: str = Field(
+        default="medium",
+        description="博文长度: 'brief' | 'medium' | 'deep'",
+    )
+    custom_prompt: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="追加到写作提示词末尾的自定义要求",
     )
 
 

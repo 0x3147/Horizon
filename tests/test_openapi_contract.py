@@ -16,16 +16,16 @@ def openapi_schema(tmp_path):
     return response.json()
 
 
-def test_openapi_only_exposes_get_and_post_methods(tmp_path):
+def test_openapi_only_exposes_get_post_and_item_flag_patch_methods(tmp_path):
     schema = openapi_schema(tmp_path)
-    exposed_methods = {
-        method
-        for operations in schema["paths"].values()
-        for method in operations
-        if method in {"get", "post", "put", "delete", "patch"}
-    }
+    exposed_methods = {}
+    for path, operations in schema["paths"].items():
+        for method in operations:
+            if method in {"get", "post", "put", "delete", "patch"}:
+                exposed_methods.setdefault(method, set()).add(path)
 
-    assert exposed_methods <= {"get", "post"}
+    assert set(exposed_methods) <= {"get", "post", "patch"}
+    assert exposed_methods.get("patch", set()) <= {"/items/{item_id}"}
 
 
 def test_openapi_hides_put_and_delete_replacements(tmp_path):

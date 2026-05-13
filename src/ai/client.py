@@ -2,7 +2,7 @@
 
 import os
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Literal, Optional
 
 from anthropic import AsyncAnthropic
 from openai import AsyncOpenAI, AsyncAzureOpenAI
@@ -11,6 +11,8 @@ from google.genai import types
 
 from ..models import AIConfig, AIProvider
 from .tokens import record_usage
+
+ResponseFormat = Literal["json", "text"]
 
 
 def _resolve_secret(inline_value: Optional[str], env_name: Optional[str], label: str) -> str:
@@ -30,6 +32,7 @@ class AIClient(ABC):
         user: str,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        response_format: ResponseFormat = "json",
     ) -> str:
         """Generate completion from AI model.
 
@@ -73,6 +76,7 @@ class AnthropicClient(AIClient):
         user: str,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        response_format: ResponseFormat = "json",
     ) -> str:
         """Generate completion using Claude.
 
@@ -133,6 +137,7 @@ class OpenAIClient(AIClient):
         user: str,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        response_format: ResponseFormat = "json",
     ) -> str:
         """Generate completion using OpenAI.
 
@@ -148,6 +153,10 @@ class OpenAIClient(AIClient):
         temperature = self.temperature if temperature is None else temperature
         max_tokens = self.max_tokens if max_tokens is None else max_tokens
 
+        kwargs = {}
+        if response_format == "json":
+            kwargs["response_format"] = {"type": "json_object"}
+
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=[
@@ -156,7 +165,7 @@ class OpenAIClient(AIClient):
             ],
             temperature=temperature,
             max_tokens=max_tokens,
-            response_format={"type": "json_object"}
+            **kwargs,
         )
         usage = getattr(response, "usage", None)
         if usage is not None:
@@ -217,6 +226,7 @@ class AzureOpenAIClient(AIClient):
         user: str,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        response_format: ResponseFormat = "json",
     ) -> str:
         """Generate completion using Azure OpenAI.
 
@@ -238,6 +248,7 @@ class AzureOpenAIClient(AIClient):
                 user=user,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                response_format=response_format,
                 use_max_completion_tokens=self._use_max_completion_tokens,
             )
         except Exception as exc:
@@ -251,6 +262,7 @@ class AzureOpenAIClient(AIClient):
                 user=user,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                response_format=response_format,
                 use_max_completion_tokens=fallback,
             )
 
@@ -270,6 +282,7 @@ class AzureOpenAIClient(AIClient):
         user: str,
         temperature: float,
         max_tokens: int,
+        response_format: ResponseFormat,
         use_max_completion_tokens: bool,
     ):
         tokens_kwarg = (
@@ -277,6 +290,10 @@ class AzureOpenAIClient(AIClient):
             if use_max_completion_tokens
             else {"max_tokens": max_tokens}
         )
+        kwargs = {}
+        if response_format == "json":
+            kwargs["response_format"] = {"type": "json_object"}
+
         return await self.client.chat.completions.create(
             model=self.model,
             messages=[
@@ -284,7 +301,7 @@ class AzureOpenAIClient(AIClient):
                 {"role": "user", "content": user},
             ],
             temperature=temperature,
-            response_format={"type": "json_object"},
+            **kwargs,
             **tokens_kwarg,
         )
 
@@ -327,6 +344,7 @@ class MiniMaxClient(AIClient):
         user: str,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        response_format: ResponseFormat = "json",
     ) -> str:
         """Generate completion using MiniMax.
 
@@ -396,6 +414,7 @@ class AliClient(AIClient):
         user: str,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        response_format: ResponseFormat = "json",
     ) -> str:
         """Generate completion using DashScope.
 
@@ -411,6 +430,10 @@ class AliClient(AIClient):
         temperature = self.temperature if temperature is None else temperature
         max_tokens = self.max_tokens if max_tokens is None else max_tokens
 
+        kwargs = {}
+        if response_format == "json":
+            kwargs["response_format"] = {"type": "json_object"}
+
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=[
@@ -419,7 +442,7 @@ class AliClient(AIClient):
             ],
             temperature=temperature,
             max_tokens=max_tokens,
-            response_format={"type": "json_object"}
+            **kwargs,
         )
         return response.choices[0].message.content
 
@@ -448,6 +471,7 @@ class GeminiClient(AIClient):
         user: str,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        response_format: ResponseFormat = "json",
     ) -> str:
         """Generate completion using Gemini.
 
@@ -463,6 +487,8 @@ class GeminiClient(AIClient):
         temperature = self.temperature if temperature is None else temperature
         max_tokens = self.max_tokens if max_tokens is None else max_tokens
 
+        response_mime_type = "application/json" if response_format == "json" else "text/plain"
+
         response = await self.client.aio.models.generate_content(
             model=self.model,
             contents=user,
@@ -470,7 +496,7 @@ class GeminiClient(AIClient):
                 system_instruction=system,
                 temperature=temperature,
                 max_output_tokens=max_tokens,
-                response_mime_type="application/json"
+                response_mime_type=response_mime_type
             )
         )
         usage = getattr(response, "usage_metadata", None)
