@@ -18,8 +18,20 @@ DEFAULT_THROTTLE_SEC = 0.0
 class ContentAnalyzer:
     """Analyzes content items using AI to determine importance."""
 
-    def __init__(self, ai_client: AIClient):
+    def __init__(self, ai_client: AIClient, domains: list | None = None):
         self.client = ai_client
+        self._system_prompt = self._build_system_prompt(domains or [])
+
+    @staticmethod
+    def _build_system_prompt(domains: list) -> str:
+        enabled = [d for d in domains if getattr(d, 'enabled', True)]
+        if not enabled:
+            return CONTENT_ANALYSIS_SYSTEM
+        lines = ["", "User's areas of interest (boost score for content matching these topics):"]
+        for d in enabled:
+            kws = ", ".join(getattr(d, 'keywords', []))
+            lines.append(f"- {getattr(d, 'label', d)}: {kws}")
+        return CONTENT_ANALYSIS_SYSTEM + "\n".join(lines) + "\n"
 
     @staticmethod
     def _parse_json_response(response: str) -> Optional[dict]:
@@ -130,7 +142,7 @@ class ContentAnalyzer:
 
         # Get AI completion
         response = await self.client.complete(
-            system=CONTENT_ANALYSIS_SYSTEM,
+            system=self._system_prompt,
             user=user_prompt,
         )
 

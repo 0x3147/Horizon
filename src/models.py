@@ -194,6 +194,14 @@ class FilteringConfig(BaseModel):
     time_window_hours: int = 24
 
 
+class DomainConfig(BaseModel):
+    """User interest domain configuration."""
+    id: str
+    label: str
+    enabled: bool = True
+    keywords: List[str] = Field(default_factory=list)
+
+
 class Config(BaseModel):
     """Main configuration model."""
 
@@ -201,6 +209,7 @@ class Config(BaseModel):
     ai: AIConfig
     sources: SourcesConfig
     filtering: FilteringConfig
+    domains: List[DomainConfig] = Field(default_factory=list)
     github_token: Optional[str] = None
     email: Optional[EmailConfig] = None
     webhook: Optional[WebhookConfig] = None
