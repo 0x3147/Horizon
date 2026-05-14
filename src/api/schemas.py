@@ -231,6 +231,9 @@ class ReportGenerateResponse(BaseModel):
     title: str = Field(description="报告标题")
     item_count: int = Field(description="报告中包含的条目数")
     generated_at: str = Field(description="生成时间 ISO 格式")
+    artifact_id: str | None = Field(default=None, description="Saved writing artifact id")
+    input_item_count: int = Field(default=0, description="Number of items selected before prompt compaction")
+    material_limit: int = Field(default=30, description="Maximum items sent to the writing model")
 
 
 class BlogDraftRequest(BaseModel):
@@ -271,6 +274,35 @@ class BlogDraftResponse(BaseModel):
     title_suggestions: list[str] = Field(description="标题建议列表")
     references: list[str] = Field(description="引用的来源 URL 列表")
     generated_at: str = Field(description="生成时间 ISO 格式")
+    artifact_id: str | None = Field(default=None, description="Saved writing artifact id")
+    input_item_count: int = Field(default=0, description="Number of items selected before prompt compaction")
+    material_limit: int = Field(default=30, description="Maximum items sent to the writing model")
+
+
+class WritingArtifactData(BaseModel):
+    id: str
+    artifact_type: str
+    title: str
+    markdown: str
+    params: dict[str, Any] = Field(default_factory=dict)
+    item_ids: list[str] = Field(default_factory=list)
+    created_at: str
+    updated_at: str
+
+
+class WritingArtifactListData(BaseModel):
+    items: list[WritingArtifactData]
+
+
+class WritingArtifactUpdateRequest(BaseModel):
+    title: str | None = None
+    markdown: str | None = None
+
+
+class WritingArtifactExportData(BaseModel):
+    filename: str
+    mime_type: str
+    content: str
 
 
 # ===================== Domain / Tag Schemas =====================

@@ -4,7 +4,7 @@ from src.models import ContentItem, SourceType
 from src.storage.sqlite_store import SQLiteStore
 
 
-def item(item_id="rss:1", title="Example keyword", score=8.5, tags=None, metadata=None):
+def item(item_id="rss:1", title="Example keyword", score=8.5, tags=None, metadata=None, published_at=None):
     return ContentItem(
         id=item_id,
         source_type=SourceType.RSS,
@@ -12,7 +12,7 @@ def item(item_id="rss:1", title="Example keyword", score=8.5, tags=None, metadat
         url="https://example.com/post",
         content="Body",
         author="Alice",
-        published_at=datetime(2026, 5, 9, tzinfo=timezone.utc),
+        published_at=published_at or datetime(2026, 5, 9, tzinfo=timezone.utc),
         ai_score=score,
         ai_reason="Useful",
         ai_summary="Summary",
@@ -56,6 +56,36 @@ def test_query_items_filters_and_get_item(tmp_path):
     assert [row["id"] for row in store.query_items(q="keyword")] == ["rss:1"]
     assert [row["id"] for row in store.query_items(max_score=5.0)] == ["rss:2"]
     assert store.get_item("rss:1")["title"] == "AI infrastructure keyword"
+
+
+def test_query_items_filters_by_published_range(tmp_path):
+    store = SQLiteStore(tmp_path / "horizon.db")
+    store.initialize()
+    store.create_run("run-1", hours=168, config_snapshot={})
+    store.save_items(
+        "run-1",
+        [
+            item("rss:old", "Old AI", 9.0, ["ai"], published_at=datetime(2026, 5, 1, tzinfo=timezone.utc)),
+            item("rss:today", "Today AI", 8.0, ["ai"], published_at=datetime(2026, 5, 14, 8, tzinfo=timezone.utc)),
+            item("rss:later", "Later AI", 7.0, ["ai"], published_at=datetime(2026, 5, 15, tzinfo=timezone.utc)),
+        ],
+        stage="filtered",
+        selected=True,
+    )
+
+    rows = store.query_items(
+        selected_only=True,
+        published_after=datetime(2026, 5, 14, tzinfo=timezone.utc),
+        published_before=datetime(2026, 5, 14, 23, 59, 59, tzinfo=timezone.utc),
+        limit=50,
+    )
+
+    assert [row["id"] for row in rows] == ["rss:today"]
+    assert store.count_items(
+        selected_only=True,
+        published_after=datetime(2026, 5, 14, tzinfo=timezone.utc),
+        published_before=datetime(2026, 5, 14, 23, 59, 59, tzinfo=timezone.utc),
+    ) == 1
 
 
 def test_save_items_projects_enrichment_metadata_to_analysis_fields(tmp_path):
@@ -140,3 +170,34 @@ def test_get_item_backfills_rich_fields_from_metadata_when_analysis_columns_are_
     assert stored["background"] == {"zh": "旧数据中文背景。"}
     assert stored["community_discussion"] == {"zh": "旧数据中文讨论。"}
     assert stored["citations"] == [{"url": "https://example.com/old", "title": "Old source"}]
+
+
+def test_writing_artifacts_can_be_created_listed_updated_and_exported(tmp_path):
+    store = SQLiteStore(tmp_path / "horizon.db")
+    store.initialize()
+
+    artifact = store.create_writing_artifact(
+        artifact_type="report",
+        title="今日技术动态",
+        markdown="# 今日技术动态",
+        params={"time_range": "today"},
+        item_ids=["rss:1", "rss:2"],
+    )
+
+    listed = store.list_writing_artifacts(limit=10, offset=0)
+    assert listed[0]["id"] == artifact["id"]
+    assert listed[0]["title"] == "今日技术动态"
+    assert listed[0]["artifact_type"] == "report"
+
+    updated = store.update_writing_artifact(
+        artifact["id"],
+        title="更新标题",
+        markdown="# 更新标题",
+    )
+    assert updated is True
+
+    loaded = store.get_writing_artifact(artifact["id"])
+    assert loaded["title"] == "更新标题"
+    assert loaded["markdown"] == "# 更新标题"
+    assert loaded["item_ids"] == ["rss:1", "rss:2"]
+    assert loaded["params"] == {"time_range": "today"}

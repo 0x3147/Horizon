@@ -25,7 +25,7 @@ def test_openapi_only_exposes_get_post_and_item_flag_patch_methods(tmp_path):
                 exposed_methods.setdefault(method, set()).add(path)
 
     assert set(exposed_methods) <= {"get", "post", "patch"}
-    assert exposed_methods.get("patch", set()) <= {"/items/{item_id}"}
+    assert exposed_methods.get("patch", set()) <= {"/items/{item_id}", "/write/artifacts/{artifact_id}"}
 
 
 def test_openapi_hides_put_and_delete_replacements(tmp_path):

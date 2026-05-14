@@ -5,6 +5,7 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 
 SCHEMA_SQL = (
@@ -81,6 +82,18 @@ SCHEMA_SQL = (
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS writing_artifacts (
+        id TEXT PRIMARY KEY,
+        artifact_type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        markdown TEXT NOT NULL,
+        params_json TEXT NOT NULL DEFAULT '{}',
+        item_ids_json TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS run_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         run_id TEXT,
@@ -135,6 +148,22 @@ class SQLiteStore:
                     except Exception:
                         pass
                 conn.execute("INSERT OR IGNORE INTO schema_migrations (version) VALUES (2)")
+            if 3 not in applied:
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS writing_artifacts (
+                        id TEXT PRIMARY KEY,
+                        artifact_type TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        markdown TEXT NOT NULL,
+                        params_json TEXT NOT NULL DEFAULT '{}',
+                        item_ids_json TEXT NOT NULL DEFAULT '[]',
+                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
+                conn.execute("INSERT OR IGNORE INTO schema_migrations (version) VALUES (3)")
             conn.commit()
 
     def create_run(self, run_id: str, hours: int, config_snapshot: dict[str, Any] | None = None) -> None:
@@ -346,6 +375,8 @@ class SQLiteStore:
         tag: str | None = None,
         q: str | None = None,
         keywords: list[str] | None = None,
+        published_after: datetime | str | None = None,
+        published_before: datetime | str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
@@ -359,6 +390,8 @@ class SQLiteStore:
             tag=tag,
             q=q,
             keywords=keywords,
+            published_after=published_after,
+            published_before=published_before,
         )
         page_params = [*params, limit, offset]
         with self.connect() as conn:
@@ -388,6 +421,8 @@ class SQLiteStore:
         tag: str | None = None,
         q: str | None = None,
         keywords: list[str] | None = None,
+        published_after: datetime | str | None = None,
+        published_before: datetime | str | None = None,
     ) -> int:
         where_sql, params = _item_query_filter(
             run_id=run_id,
@@ -399,6 +434,8 @@ class SQLiteStore:
             tag=tag,
             q=q,
             keywords=keywords,
+            published_after=published_after,
+            published_before=published_before,
         )
         with self.connect() as conn:
             row = conn.execute(
@@ -514,6 +551,95 @@ class SQLiteStore:
             row = conn.execute("SELECT * FROM summaries WHERE id = ?", (summary_id,)).fetchone()
         return dict(row) if row else None
 
+    def create_writing_artifact(
+        self,
+        artifact_type: str,
+        title: str,
+        markdown: str,
+        params: dict[str, Any] | None = None,
+        item_ids: list[str] | None = None,
+    ) -> dict[str, Any]:
+        artifact_id = f"writing:{uuid4().hex}"
+        now = _utc_now()
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO writing_artifacts (
+                    id, artifact_type, title, markdown, params_json, item_ids_json, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    artifact_id,
+                    artifact_type,
+                    title,
+                    markdown,
+                    _json_dumps(params or {}),
+                    _json_dumps(item_ids or []),
+                    now,
+                    now,
+                ),
+            )
+            row = conn.execute("SELECT * FROM writing_artifacts WHERE id = ?", (artifact_id,)).fetchone()
+            conn.commit()
+        return _writing_artifact_from_row(row)
+
+    def list_writing_artifacts(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        artifact_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        where = ""
+        params: list[Any] = []
+        if artifact_type:
+            where = "WHERE artifact_type = ?"
+            params.append(artifact_type)
+        params.extend([limit, offset])
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT * FROM writing_artifacts
+                {where}
+                ORDER BY updated_at DESC, created_at DESC
+                LIMIT ? OFFSET ?
+                """,
+                params,
+            ).fetchall()
+        return [_writing_artifact_from_row(row) for row in rows]
+
+    def get_writing_artifact(self, artifact_id: str) -> dict[str, Any] | None:
+        with self.connect() as conn:
+            row = conn.execute("SELECT * FROM writing_artifacts WHERE id = ?", (artifact_id,)).fetchone()
+        return _writing_artifact_from_row(row) if row else None
+
+    def update_writing_artifact(
+        self,
+        artifact_id: str,
+        title: str | None = None,
+        markdown: str | None = None,
+    ) -> bool:
+        updates = []
+        params: list[Any] = []
+        if title is not None:
+            updates.append("title = ?")
+            params.append(title)
+        if markdown is not None:
+            updates.append("markdown = ?")
+            params.append(markdown)
+        if not updates:
+            return False
+        updates.append("updated_at = ?")
+        params.append(_utc_now())
+        params.append(artifact_id)
+        with self.connect() as conn:
+            cursor = conn.execute(
+                f"UPDATE writing_artifacts SET {', '.join(updates)} WHERE id = ?",
+                params,
+            )
+            conn.commit()
+        return cursor.rowcount > 0
+
     def save_schedule(self, schedule: dict[str, Any]) -> dict[str, Any]:
         with self.connect() as conn:
             conn.execute(
@@ -611,6 +737,8 @@ def _item_query_filter(
     tag: str | None = None,
     q: str | None = None,
     keywords: list[str] | None = None,
+    published_after: datetime | str | None = None,
+    published_before: datetime | str | None = None,
 ) -> tuple[str, list[Any]]:
     where: list[str] = []
     params: list[Any] = []
@@ -631,6 +759,12 @@ def _item_query_filter(
     if stage:
         where.append("i.stage = ?")
         params.append(stage)
+    if published_after is not None:
+        where.append("i.published_at >= ?")
+        params.append(_serialize_scalar(published_after))
+    if published_before is not None:
+        where.append("i.published_at <= ?")
+        params.append(_serialize_scalar(published_before))
     if tag:
         where.append("a.ai_tags_json LIKE ?")
         params.append(f'%"{tag}"%')
@@ -761,6 +895,13 @@ def _item_from_row(row: sqlite3.Row) -> dict[str, Any]:
         data["community_discussion"] = _rich_text_from_metadata(data["metadata"], "community_discussion")
     if not data["citations"]:
         data["citations"] = _citations_from_metadata(data["metadata"])
+    return data
+
+
+def _writing_artifact_from_row(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["params"] = _json_loads(data.pop("params_json", None), {})
+    data["item_ids"] = _json_loads(data.pop("item_ids_json", None), [])
     return data
 
 

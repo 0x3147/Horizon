@@ -7,13 +7,17 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Request
 
-from src.ai.writer import create_writing_service
+from src.ai.writer import MAX_WRITING_ITEMS, create_writing_service
 from src.api.schemas import (
     ApiResponse,
     BlogDraftRequest,
     BlogDraftResponse,
     ReportGenerateRequest,
     ReportGenerateResponse,
+    WritingArtifactData,
+    WritingArtifactExportData,
+    WritingArtifactListData,
+    WritingArtifactUpdateRequest,
     fail,
     ok,
 )
@@ -62,9 +66,12 @@ async def generate_report(
     if payload.item_ids:
         items = _items_by_ids(store, payload.item_ids)
     else:
-        # Fetch selected items; store.query_items lacks native date filtering so we filter in Python
-        items = store.query_items(selected_only=True, limit=200)
-        items = _filter_by_date(items, start, end)
+        items = store.query_items(
+            selected_only=True,
+            published_after=start,
+            published_before=end,
+            limit=500,
+        )
 
     # Filter by domains if specified
     if payload.domains:
@@ -94,12 +101,23 @@ async def generate_report(
             items = filtered
 
     if not items:
+        markdown = f"# {_report_title(payload)}\n\n暂无相关内容。"
+        artifact = store.create_writing_artifact(
+            artifact_type="report",
+            title=_report_title(payload),
+            markdown=markdown,
+            params=payload.model_dump(mode="json"),
+            item_ids=[],
+        )
         return ok(
             ReportGenerateResponse(
-                markdown=f"# {_report_title(payload)}\n\n暂无相关内容。",
+                markdown=markdown,
                 title=_report_title(payload),
                 item_count=0,
                 generated_at=now.isoformat(),
+                artifact_id=artifact["id"],
+                input_item_count=len(items),
+                material_limit=MAX_WRITING_ITEMS,
             )
         )
 
@@ -108,12 +126,23 @@ async def generate_report(
     except Exception as exc:
         raise _writing_generation_error(exc) from exc
 
+    artifact = store.create_writing_artifact(
+        artifact_type="report",
+        title=_report_title(payload),
+        markdown=markdown,
+        params=payload.model_dump(mode="json"),
+        item_ids=[item.get("id") for item in items if item.get("id")],
+    )
+
     return ok(
         ReportGenerateResponse(
             markdown=markdown,
             title=_report_title(payload),
             item_count=len(items),
             generated_at=now.isoformat(),
+            artifact_id=artifact["id"],
+            input_item_count=len(items),
+            material_limit=MAX_WRITING_ITEMS,
         )
     )
 
@@ -136,12 +165,22 @@ async def generate_blog_draft(payload: BlogDraftRequest, request: Request) -> di
             suggestions = _extract_title_suggestions(draft) or await writing_service.suggest_titles(items, payload.style)
         except Exception as exc:
             raise _writing_generation_error(exc) from exc
+        artifact = store.create_writing_artifact(
+            artifact_type="blog",
+            title=suggestions[0] if suggestions else "博文草稿",
+            markdown=draft,
+            params=payload.model_dump(mode="json"),
+            item_ids=[item.get("id") for item in items if item.get("id")],
+        )
         return ok(
             BlogDraftResponse(
                 markdown=draft,
                 title_suggestions=suggestions,
                 references=[item.get("url", "") for item in items if item.get("url")],
                 generated_at=datetime.now(timezone.utc).isoformat(),
+                artifact_id=artifact["id"],
+                input_item_count=len(items),
+                material_limit=MAX_WRITING_ITEMS,
             )
         )
 
@@ -161,12 +200,80 @@ async def generate_blog_draft(payload: BlogDraftRequest, request: Request) -> di
     except Exception as exc:
         raise _writing_generation_error(exc) from exc
 
+    artifact = store.create_writing_artifact(
+        artifact_type="blog",
+        title=suggestions[0] if suggestions else "博文草稿",
+        markdown=draft,
+        params=payload.model_dump(mode="json"),
+        item_ids=[item.get("id") for item in [item] if item.get("id")],
+    )
+
     return ok(
         BlogDraftResponse(
             markdown=draft,
             title_suggestions=suggestions,
             references=[url] if url else [],
             generated_at=datetime.now(timezone.utc).isoformat(),
+            artifact_id=artifact["id"],
+            input_item_count=1,
+            material_limit=MAX_WRITING_ITEMS,
+        )
+    )
+
+
+@router.get("/artifacts", response_model=ApiResponse[WritingArtifactListData])
+def list_writing_artifacts(
+    request: Request,
+    artifact_type: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
+    items = request.app.state.store.list_writing_artifacts(
+        artifact_type=artifact_type,
+        limit=limit,
+        offset=offset,
+    )
+    return ok(WritingArtifactListData(items=items))
+
+
+@router.get("/artifacts/{artifact_id}", response_model=ApiResponse[WritingArtifactData])
+def get_writing_artifact(artifact_id: str, request: Request) -> dict:
+    artifact = request.app.state.store.get_writing_artifact(artifact_id)
+    if not artifact:
+        return fail(404, 40402, f"Writing artifact {artifact_id} not found")
+    return ok(WritingArtifactData(**artifact))
+
+
+@router.patch("/artifacts/{artifact_id}", response_model=ApiResponse[WritingArtifactData])
+def update_writing_artifact(
+    artifact_id: str,
+    payload: WritingArtifactUpdateRequest,
+    request: Request,
+) -> dict:
+    updated = request.app.state.store.update_writing_artifact(
+        artifact_id,
+        title=payload.title,
+        markdown=payload.markdown,
+    )
+    if not updated:
+        return fail(404, 40402, f"Writing artifact {artifact_id} not found")
+    artifact = request.app.state.store.get_writing_artifact(artifact_id)
+    return ok(WritingArtifactData(**artifact))
+
+
+@router.get("/artifacts/{artifact_id}/export", response_model=ApiResponse[WritingArtifactExportData])
+def export_writing_artifact(artifact_id: str, request: Request, format: str = "markdown") -> dict:
+    artifact = request.app.state.store.get_writing_artifact(artifact_id)
+    if not artifact:
+        return fail(404, 40402, f"Writing artifact {artifact_id} not found")
+    if format != "markdown":
+        return fail(400, 40005, "Only markdown export is supported")
+    title = _safe_filename(artifact["title"] or "horizon-writing")
+    return ok(
+        WritingArtifactExportData(
+            filename=f"{title}.md",
+            mime_type="text/markdown;charset=utf-8",
+            content=artifact["markdown"],
         )
     )
 
@@ -235,30 +342,9 @@ def _items_by_ids(store, item_ids: list[str], run_id: str | None = None) -> list
     return items
 
 
-def _filter_by_date(items: list[dict], start: datetime, end: datetime) -> list[dict]:
-    """Client-side date filter since query_items lacks start_date/end_date params."""
-    if start.tzinfo is None:
-        start = start.replace(tzinfo=timezone.utc)
-    if end.tzinfo is None:
-        end = end.replace(tzinfo=timezone.utc)
-
-    result: list[dict] = []
-    for item in items:
-        pub_str = item.get("published_at")
-        if pub_str:
-            try:
-                pub_date = datetime.fromisoformat(str(pub_str).replace("Z", "+00:00"))
-                if pub_date.tzinfo is None:
-                    pub_date = pub_date.replace(tzinfo=timezone.utc)
-                if start <= pub_date <= end:
-                    result.append(item)
-            except (ValueError, TypeError):
-                # Keep items whose date we cannot parse
-                result.append(item)
-        else:
-            # Keep items without a published date
-            result.append(item)
-    return result
+def _safe_filename(value: str) -> str:
+    cleaned = re.sub(r'[\\/:*?"<>|]+', "-", value).strip()
+    return cleaned or "horizon-writing"
 
 
 def _parse_datetime(value: str) -> datetime:
