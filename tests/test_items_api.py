@@ -57,6 +57,33 @@ def test_query_items_by_score_tag_and_text(tmp_path):
     assert text.json()["data"]["items"][0]["id"] == "rss:1"
 
 
+def test_query_items_returns_pagination_metadata(tmp_path):
+    app = create_app(settings(tmp_path))
+    app.state.store.create_run("run-1", hours=24, config_snapshot={})
+    app.state.store.save_items(
+        "run-1",
+        [
+            item("rss:1", "First", 9.0, ["ai"]),
+            item("rss:2", "Second", 8.0, ["ai"]),
+            item("rss:3", "Third", 7.0, ["ai"]),
+        ],
+        stage="filtered",
+        selected=True,
+    )
+    client = TestClient(app)
+
+    response = client.get(
+        "/items",
+        params={"run_id": "run-1", "selected_only": True, "limit": 2, "offset": 1},
+    )
+
+    data = response.json()["data"]
+    assert [item["id"] for item in data["items"]] == ["rss:2", "rss:3"]
+    assert data["total"] == 3
+    assert data["limit"] == 2
+    assert data["offset"] == 1
+
+
 def test_query_items_by_domain_uses_enabled_config_only(tmp_path):
     app = create_app(settings(tmp_path))
     seed(app)
@@ -78,7 +105,7 @@ def test_query_items_by_domain_uses_enabled_config_only(tmp_path):
     disabled = client.get("/items", params={"domain": "plants"})
 
     assert [item["id"] for item in enabled.json()["data"]["items"]] == ["rss:1"]
-    assert disabled.json()["data"]["items"] == []
+    assert disabled.json()["data"] == {"items": [], "total": 0, "limit": 50, "offset": 0}
 
 
 def test_get_item_by_id(tmp_path):

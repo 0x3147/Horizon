@@ -115,6 +115,9 @@ class ItemPatchRequest(BaseModel):
 
 class ItemListData(BaseModel):
     items: list[ItemData]
+    total: int = 0
+    offset: int = 0
+    limit: int = 50
 
 
 class SummaryData(BaseModel):

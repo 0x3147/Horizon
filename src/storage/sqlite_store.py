@@ -349,43 +349,18 @@ class SQLiteStore:
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
-        where: list[str] = []
-        params: list[Any] = []
-        if run_id:
-            where.append("i.run_id = ?")
-            params.append(run_id)
-        if source_type:
-            where.append("i.source_type = ?")
-            params.append(_enum_value(source_type))
-        if min_score is not None:
-            where.append("a.ai_score >= ?")
-            params.append(min_score)
-        if max_score is not None:
-            where.append("a.ai_score <= ?")
-            params.append(max_score)
-        if selected_only:
-            where.append("i.is_selected = 1")
-        if stage:
-            where.append("i.stage = ?")
-            params.append(stage)
-        if tag:
-            where.append("a.ai_tags_json LIKE ?")
-            params.append(f'%"{tag}"%')
-        if q:
-            where.append("(LOWER(i.title) LIKE ? OR LOWER(i.content) LIKE ? OR LOWER(a.ai_summary) LIKE ?)")
-            needle = f"%{q.lower()}%"
-            params.extend([needle, needle, needle])
-        if keywords:
-            keyword_conditions = " OR ".join(
-                ["(LOWER(i.title) LIKE ? OR LOWER(a.ai_summary) LIKE ? OR a.ai_tags_json LIKE ?)"]
-                * len(keywords)
-            )
-            where.append(f"({keyword_conditions})")
-            for kw in keywords:
-                needle = f"%{kw.lower()}%"
-                params.extend([needle, needle, needle])
-        where_sql = f"WHERE {' AND '.join(where)}" if where else ""
-        params.extend([limit, offset])
+        where_sql, params = _item_query_filter(
+            run_id=run_id,
+            source_type=source_type,
+            min_score=min_score,
+            max_score=max_score,
+            selected_only=selected_only,
+            stage=stage,
+            tag=tag,
+            q=q,
+            keywords=keywords,
+        )
+        page_params = [*params, limit, offset]
         with self.connect() as conn:
             rows = conn.execute(
                 f"""
@@ -398,9 +373,44 @@ class SQLiteStore:
                 ORDER BY COALESCE(a.ai_score, -1) DESC, i.published_at DESC
                 LIMIT ? OFFSET ?
                 """,
-                params,
+                page_params,
             ).fetchall()
         return [_item_from_row(row) for row in rows]
+
+    def count_items(
+        self,
+        run_id: str | None = None,
+        source_type: str | None = None,
+        min_score: float | None = None,
+        max_score: float | None = None,
+        selected_only: bool = False,
+        stage: str | None = None,
+        tag: str | None = None,
+        q: str | None = None,
+        keywords: list[str] | None = None,
+    ) -> int:
+        where_sql, params = _item_query_filter(
+            run_id=run_id,
+            source_type=source_type,
+            min_score=min_score,
+            max_score=max_score,
+            selected_only=selected_only,
+            stage=stage,
+            tag=tag,
+            q=q,
+            keywords=keywords,
+        )
+        with self.connect() as conn:
+            row = conn.execute(
+                f"""
+                SELECT COUNT(*) AS total
+                FROM items i
+                LEFT JOIN item_analysis a ON a.run_id = i.run_id AND a.item_id = i.id
+                {where_sql}
+                """,
+                params,
+            ).fetchone()
+        return int(row["total"] if row else 0)
 
     def update_item_flags(
         self,
@@ -589,6 +599,56 @@ def _serialize_scalar(value: Any) -> Any:
 
 def _enum_value(value: Any) -> str:
     return getattr(value, "value", value)
+
+
+def _item_query_filter(
+    run_id: str | None = None,
+    source_type: str | None = None,
+    min_score: float | None = None,
+    max_score: float | None = None,
+    selected_only: bool = False,
+    stage: str | None = None,
+    tag: str | None = None,
+    q: str | None = None,
+    keywords: list[str] | None = None,
+) -> tuple[str, list[Any]]:
+    where: list[str] = []
+    params: list[Any] = []
+    if run_id:
+        where.append("i.run_id = ?")
+        params.append(run_id)
+    if source_type:
+        where.append("i.source_type = ?")
+        params.append(_enum_value(source_type))
+    if min_score is not None:
+        where.append("a.ai_score >= ?")
+        params.append(min_score)
+    if max_score is not None:
+        where.append("a.ai_score <= ?")
+        params.append(max_score)
+    if selected_only:
+        where.append("i.is_selected = 1")
+    if stage:
+        where.append("i.stage = ?")
+        params.append(stage)
+    if tag:
+        where.append("a.ai_tags_json LIKE ?")
+        params.append(f'%"{tag}"%')
+    if q:
+        where.append("(LOWER(i.title) LIKE ? OR LOWER(i.content) LIKE ? OR LOWER(a.ai_summary) LIKE ?)")
+        needle = f"%{q.lower()}%"
+        params.extend([needle, needle, needle])
+    if keywords:
+        keyword_conditions = " OR ".join(
+            ["(LOWER(i.title) LIKE ? OR LOWER(a.ai_summary) LIKE ? OR a.ai_tags_json LIKE ?)"]
+            * len(keywords)
+        )
+        where.append(f"({keyword_conditions})")
+        for kw in keywords:
+            needle = f"%{kw.lower()}%"
+            params.extend([needle, needle, needle])
+    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+    return where_sql, params
 
 
 def _source_name(metadata: dict[str, Any]) -> str | None:

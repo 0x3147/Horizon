@@ -37,7 +37,7 @@ def list_items(
                     keywords = d.get("keywords")
                     break
         if not keywords:
-            return ok({"items": []})
+            return ok({"items": [], "total": 0, "limit": limit, "offset": offset})
     items = request.app.state.store.query_items(
         run_id=run_id,
         source_type=source_type,
@@ -51,7 +51,18 @@ def list_items(
         limit=limit,
         offset=offset,
     )
-    return ok({"items": items})
+    total = request.app.state.store.count_items(
+        run_id=run_id,
+        source_type=source_type,
+        min_score=min_score,
+        max_score=max_score,
+        selected_only=selected_only,
+        stage=stage,
+        tag=tag,
+        q=q,
+        keywords=keywords,
+    )
+    return ok({"items": items, "total": total, "limit": limit, "offset": offset})
 
 
 @router.get(
