@@ -81,6 +81,9 @@ class RSSScraper(BaseScraper):
             feed = feedparser.parse(response.text)
 
             for entry in feed.entries:
+                if len(items) >= source.fetch_limit:
+                    break
+
                 # Parse published date
                 published_at = self._parse_date(entry)
                 if not published_at or published_at < since:

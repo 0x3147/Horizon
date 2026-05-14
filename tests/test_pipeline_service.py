@@ -1,4 +1,5 @@
 import asyncio
+import json
 from datetime import datetime, timezone
 
 import pytest
@@ -139,3 +140,39 @@ def test_pipeline_cancel_event_marks_cancelled(tmp_path):
         asyncio.run(pipeline.run(run_id="run-1", hours=24, cancel_event=cancel_event))
 
     assert pipeline.store.get_run("run-1")["status"] == "cancelled"
+
+
+def test_pipeline_fallback_analyzer_receives_config_domains(tmp_path, monkeypatch):
+    s = settings(tmp_path)
+    payload = json.loads(s.config_path.read_text(encoding="utf-8"))
+    payload["domains"] = [
+        {"id": "ai", "label": "AI与大数据", "enabled": True, "keywords": ["ai", "llm"]},
+    ]
+    s.config_path.write_text(json.dumps(payload), encoding="utf-8")
+    captured = {}
+
+    class CapturingAnalyzer:
+        def __init__(self, ai_client, domains=None):
+            captured["domains"] = domains
+
+        async def analyze_batch(self, items):
+            for item in items:
+                item.ai_score = 8.5
+                item.ai_reason = "Useful"
+                item.ai_summary = "Summary"
+                item.ai_tags = ["ai"]
+            return items
+
+    monkeypatch.setattr("src.core.pipeline_service.create_ai_client", lambda config: object())
+    monkeypatch.setattr("src.core.pipeline_service.ContentAnalyzer", CapturingAnalyzer)
+
+    pipeline = PipelineService(
+        store=SQLiteStore(s.db_path),
+        settings=s,
+        orchestrator_factory=lambda config, storage: FakeOrchestrator(),
+        summarizer_factory=lambda: FakeSummarizer(),
+    )
+
+    asyncio.run(pipeline.run(run_id="run-1", hours=24))
+
+    assert captured["domains"][0].id == "ai"

@@ -73,7 +73,11 @@ async def generate_report(
         if config_path.exists():
             config_raw = json.loads(config_path.read_text(encoding="utf-8"))
             for domain in config_raw.get("domains", []):
-                domain_keywords[domain["id"]] = domain.get("keywords", [])
+                if domain.get("enabled", True) is False:
+                    continue
+                domain_id = domain.get("id")
+                if domain_id:
+                    domain_keywords[domain_id] = domain.get("keywords", [])
 
         allowed_keywords: set[str] = set()
         for domain_id in payload.domains:

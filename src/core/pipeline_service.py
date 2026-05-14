@@ -123,7 +123,7 @@ class PipelineService:
             scored_items = await orchestrator._analyze_content(raw_items)
         else:
             ai_client = create_ai_client(config.ai)
-            scored_items = await ContentAnalyzer(ai_client).analyze_batch(raw_items)
+            scored_items = await ContentAnalyzer(ai_client, config.domains).analyze_batch(raw_items)
         self.store.save_items(run_id, scored_items, stage="scored", selected=False)
         self.store.add_log(run_id, "info", "scored", f"saved {len(scored_items)} items")
         return scored_items

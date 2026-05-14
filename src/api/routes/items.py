@@ -33,9 +33,11 @@ def list_items(
         if config_path.exists():
             config = json.loads(config_path.read_text())
             for d in config.get("domains", []):
-                if d.get("id") == domain:
+                if d.get("id") == domain and d.get("enabled", True) is not False:
                     keywords = d.get("keywords")
                     break
+        if not keywords:
+            return ok({"items": []})
     items = request.app.state.store.query_items(
         run_id=run_id,
         source_type=source_type,

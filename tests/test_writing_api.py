@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
@@ -143,6 +144,42 @@ def test_report_generation_uses_writing_service_instead_of_template(tmp_path):
     assert response.status_code == 200
     assert response.json()["data"]["markdown"] == "# AI-only report"
     assert len(app.state.writing_service.report_calls) == 1
+
+
+def test_report_generation_uses_enabled_domain_keywords_only(tmp_path):
+    app = create_app(settings(tmp_path))
+    seed(app)
+    app.state.settings.config_path.parent.mkdir(parents=True, exist_ok=True)
+    app.state.settings.config_path.write_text(
+        json.dumps(
+            {
+                "domains": [
+                    {"id": "ai", "label": "AI与大数据", "enabled": True, "keywords": ["ai"]},
+                    {"id": "frontend", "label": "前端开发", "enabled": False, "keywords": ["frontend"]},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    app.state.writing_service = FakeWritingService(markdown="# Domain Report")
+    client = TestClient(app)
+
+    response = client.post(
+        "/write/report",
+        json={
+            "time_range": "custom",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-31",
+            "domains": ["ai", "frontend"],
+            "style": "professional",
+            "language": "zh",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["item_count"] == 1
+    sent_items = app.state.writing_service.report_calls[0][0]
+    assert [item["id"] for item in sent_items] == ["rss:1"]
 
 
 def test_writing_service_failure_returns_actionable_500(tmp_path):

@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
@@ -54,6 +55,30 @@ def test_query_items_by_score_tag_and_text(tmp_path):
     assert score.json()["data"]["items"][0]["id"] == "rss:1"
     assert tag.json()["data"]["items"][0]["id"] == "rss:1"
     assert text.json()["data"]["items"][0]["id"] == "rss:1"
+
+
+def test_query_items_by_domain_uses_enabled_config_only(tmp_path):
+    app = create_app(settings(tmp_path))
+    seed(app)
+    app.state.config_path.parent.mkdir(parents=True, exist_ok=True)
+    app.state.config_path.write_text(
+        json.dumps(
+            {
+                "domains": [
+                    {"id": "ai", "label": "AI与大数据", "enabled": True, "keywords": ["ai"]},
+                    {"id": "plants", "label": "植物", "enabled": False, "keywords": ["gardening"]},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    client = TestClient(app)
+
+    enabled = client.get("/items", params={"domain": "ai"})
+    disabled = client.get("/items", params={"domain": "plants"})
+
+    assert [item["id"] for item in enabled.json()["data"]["items"]] == ["rss:1"]
+    assert disabled.json()["data"]["items"] == []
 
 
 def test_get_item_by_id(tmp_path):

@@ -213,6 +213,7 @@ def build_config(
                 url=cfg.get("url", ""),
                 enabled=True,
                 category=cfg.get("category", ""),
+                fetch_limit=cfg.get("fetch_limit", 20),
             ))
         elif src_type == "reddit_subreddit":
             reddit_subreddits.append(RedditSubredditConfig(

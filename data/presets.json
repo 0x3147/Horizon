@@ -25,7 +25,35 @@
           "description": "Simon Willison's blog — LLM tools and experiments",
           "description_zh": "Simon Willison 博客 — LLM 工具与实验",
           "tags": ["llm", "tools"],
-          "config": { "name": "Simon Willison", "url": "https://simonwillison.net/atom/everything/", "category": "ai-tools" }
+          "config": { "name": "Simon Willison", "url": "https://simonwillison.net/atom/everything/", "category": "ai-tools", "fetch_limit": 10 }
+        },
+        {
+          "type": "rss",
+          "description": "MIT Technology Review AI — artificial intelligence news and analysis",
+          "description_zh": "MIT Technology Review AI — 人工智能新闻与分析",
+          "tags": ["ai", "news", "industry"],
+          "config": { "name": "MIT Technology Review - AI", "url": "https://www.technologyreview.com/topic/artificial-intelligence/feed", "category": "ai-news", "fetch_limit": 15 }
+        },
+        {
+          "type": "rss",
+          "description": "TechCrunch AI — AI startup, product and industry coverage",
+          "description_zh": "TechCrunch AI — AI 创业、产品与行业报道",
+          "tags": ["ai", "startup", "news"],
+          "config": { "name": "TechCrunch - AI", "url": "https://techcrunch.com/category/artificial-intelligence/feed/", "category": "ai-news", "fetch_limit": 15 }
+        },
+        {
+          "type": "rss",
+          "description": "OpenAI News — official OpenAI product and research updates",
+          "description_zh": "OpenAI News — OpenAI 官方产品与研究动态",
+          "tags": ["ai", "model", "official"],
+          "config": { "name": "OpenAI News", "url": "https://openai.com/news/rss.xml", "category": "ai-news", "fetch_limit": 10 }
+        },
+        {
+          "type": "rss",
+          "description": "NVIDIA Blog — AI computing, GPU and accelerated computing updates",
+          "description_zh": "NVIDIA Blog — AI 计算、GPU 与加速计算动态",
+          "tags": ["ai", "gpu", "hardware"],
+          "config": { "name": "NVIDIA Blog", "url": "https://blogs.nvidia.com/feed/", "category": "ai-hardware", "fetch_limit": 15 }
         },
         {
           "type": "github_user",
@@ -46,14 +74,14 @@
           "description": "QbitAI (量子位) — Chinese AI news and research coverage",
           "description_zh": "量子位 — AI 资讯与前沿报道（微信公众号）",
           "tags": ["ai", "news", "chinese"],
-          "config": { "name": "量子位", "url": "https://wechat2rss.xlab.app/feed/7131b577c61365cb47e81000738c10d872685908.xml", "category": "ai-news" }
+          "config": { "name": "量子位", "url": "https://wechat2rss.xlab.app/feed/7131b577c61365cb47e81000738c10d872685908.xml", "category": "ai-news", "fetch_limit": 15 }
         },
         {
           "type": "rss",
           "description": "AI新智元 — Chinese AI news, model releases and industry insights",
           "description_zh": "新智元 — AI 资讯、模型发布与行业洞察（微信公众号）",
           "tags": ["ai", "news", "chinese"],
-          "config": { "name": "新智元", "url": "https://wechat2rss.xlab.app/feed/ede30346413ea70dbef5d485ea5cbb95cca446e7.xml", "category": "ai-news" }
+          "config": { "name": "新智元", "url": "https://wechat2rss.xlab.app/feed/ede30346413ea70dbef5d485ea5cbb95cca446e7.xml", "category": "ai-news", "fetch_limit": 15 }
         }
       ]
     },
@@ -68,7 +96,7 @@
           "description": "LWN.net — Linux and kernel news",
           "description_zh": "LWN.net — Linux 与内核新闻",
           "tags": ["linux", "kernel"],
-          "config": { "name": "LWN.net", "url": "https://lwn.net/headlines/rss", "category": "linux-kernel" }
+          "config": { "name": "LWN.net", "url": "https://lwn.net/headlines/rss", "category": "linux-kernel", "fetch_limit": 15 }
         },
         {
           "type": "reddit_subreddit",
@@ -82,7 +110,21 @@
           "description": "Brendan Gregg's blog — performance and systems",
           "description_zh": "Brendan Gregg 博客 — 性能与系统",
           "tags": ["performance", "systems"],
-          "config": { "name": "Brendan Gregg", "url": "https://www.brendangregg.com/blog/rss.xml", "category": "systems" }
+          "config": { "name": "Brendan Gregg", "url": "https://www.brendangregg.com/blog/rss.xml", "category": "systems", "fetch_limit": 10 }
+        },
+        {
+          "type": "rss",
+          "description": "AWS News Blog — cloud services and infrastructure launches",
+          "description_zh": "AWS News Blog — 云服务与基础设施发布",
+          "tags": ["cloud", "aws", "infrastructure"],
+          "config": { "name": "AWS News Blog", "url": "https://aws.amazon.com/blogs/aws/feed/", "category": "cloud", "fetch_limit": 10 }
+        },
+        {
+          "type": "rss",
+          "description": "Cloudflare Blog — internet infrastructure, edge and security updates",
+          "description_zh": "Cloudflare Blog — 互联网基础设施、边缘网络与安全动态",
+          "tags": ["cloud", "edge", "security"],
+          "config": { "name": "Cloudflare Blog", "url": "https://blog.cloudflare.com/rss/", "category": "cloud", "fetch_limit": 10 }
         },
         {
           "type": "github_user",
@@ -111,14 +153,21 @@
           "description": "Krebs on Security — investigative security journalism",
           "description_zh": "Krebs on Security — 安全调查报道",
           "tags": ["security", "journalism"],
-          "config": { "name": "Krebs on Security", "url": "https://krebsonsecurity.com/feed/", "category": "security" }
+          "config": { "name": "Krebs on Security", "url": "https://krebsonsecurity.com/feed/", "category": "security", "fetch_limit": 15 }
         },
         {
           "type": "rss",
           "description": "Schneier on Security — security analysis and commentary",
           "description_zh": "Schneier on Security — 安全分析与评论",
           "tags": ["security", "analysis"],
-          "config": { "name": "Schneier on Security", "url": "https://www.schneier.com/feed/atom/", "category": "security" }
+          "config": { "name": "Schneier on Security", "url": "https://www.schneier.com/feed/atom/", "category": "security", "fetch_limit": 15 }
+        },
+        {
+          "type": "rss",
+          "description": "BleepingComputer — security incidents, vulnerabilities and malware news",
+          "description_zh": "BleepingComputer — 安全事件、漏洞与恶意软件新闻",
+          "tags": ["security", "vulnerability", "news"],
+          "config": { "name": "BleepingComputer", "url": "https://www.bleepingcomputer.com/feed/", "category": "security", "fetch_limit": 15 }
         }
       ]
     },
@@ -147,7 +196,14 @@
           "description": "CSS-Tricks — frontend tips and techniques",
           "description_zh": "CSS-Tricks — 前端技巧与技术",
           "tags": ["css", "frontend"],
-          "config": { "name": "CSS-Tricks", "url": "https://css-tricks.com/feed/", "category": "frontend" }
+          "config": { "name": "CSS-Tricks", "url": "https://css-tricks.com/feed/", "category": "frontend", "fetch_limit": 10 }
+        },
+        {
+          "type": "rss",
+          "description": "InfoQ — software architecture and engineering news",
+          "description_zh": "InfoQ — 软件架构与工程新闻",
+          "tags": ["software", "architecture", "news"],
+          "config": { "name": "InfoQ", "url": "https://feed.infoq.com", "category": "software-engineering", "fetch_limit": 15 }
         }
       ]
     },
@@ -212,7 +268,21 @@
           "description": "Hackaday — hardware hacking and projects",
           "description_zh": "Hackaday — 硬件创客与项目",
           "tags": ["hardware", "maker"],
-          "config": { "name": "Hackaday", "url": "https://hackaday.com/feed/", "category": "hardware" }
+          "config": { "name": "Hackaday", "url": "https://hackaday.com/feed/", "category": "hardware", "fetch_limit": 15 }
+        },
+        {
+          "type": "rss",
+          "description": "SemiWiki — semiconductor industry analysis and news",
+          "description_zh": "SemiWiki — 半导体行业分析与新闻",
+          "tags": ["semiconductor", "chips", "hardware"],
+          "config": { "name": "SemiWiki", "url": "https://semiwiki.com/feed/", "category": "semiconductor", "fetch_limit": 15 }
+        },
+        {
+          "type": "rss",
+          "description": "IEEE Spectrum — engineering, robotics, semiconductors and technology coverage",
+          "description_zh": "IEEE Spectrum — 工程、机器人、半导体与科技报道",
+          "tags": ["engineering", "hardware", "news"],
+          "config": { "name": "IEEE Spectrum", "url": "https://spectrum.ieee.org/rss/fulltext", "category": "hardware", "fetch_limit": 15 }
         }
       ]
     },
@@ -227,7 +297,7 @@
           "description": "GitHub Trending — daily popular repositories",
           "description_zh": "GitHub Trending — 每日热门仓库",
           "tags": ["github", "trending"],
-          "config": { "name": "GitHub Trending - Daily", "url": "https://mshibanami.github.io/GitHubTrendingRSS/daily/all.xml", "category": "github-trending" }
+          "config": { "name": "GitHub Trending - Daily", "url": "https://mshibanami.github.io/GitHubTrendingRSS/daily/all.xml", "category": "github-trending", "fetch_limit": 20 }
         },
         {
           "type": "reddit_subreddit",
@@ -242,6 +312,63 @@
           "description_zh": "Neovim 编辑器版本发布",
           "tags": ["editor", "neovim"],
           "config": { "owner": "neovim", "repo": "neovim" }
+        },
+        {
+          "type": "rss",
+          "description": "GitHub Blog — developer tools, open source and platform updates",
+          "description_zh": "GitHub Blog — 开发工具、开源与平台动态",
+          "tags": ["github", "devtools", "open source"],
+          "config": { "name": "GitHub Blog", "url": "https://github.blog/feed/", "category": "devtools", "fetch_limit": 10 }
+        }
+      ]
+    },
+    {
+      "id": "tech-news",
+      "name": "IT / Technology News",
+      "name_zh": "IT / 科技新闻",
+      "keywords": ["it", "technology", "tech", "news", "科技", "科技圈", "新闻", "热门", "startup", "创业", "product", "产品", "industry", "行业"],
+      "sources": [
+        {
+          "type": "rss",
+          "description": "Techmeme — aggregated top technology industry news",
+          "description_zh": "Techmeme — 科技行业热门新闻聚合",
+          "tags": ["tech", "news", "aggregator"],
+          "config": { "name": "Techmeme", "url": "https://www.techmeme.com/feed.xml", "category": "tech-news", "fetch_limit": 20 }
+        },
+        {
+          "type": "rss",
+          "description": "The Verge — consumer technology, platforms and culture",
+          "description_zh": "The Verge — 消费科技、平台与科技文化",
+          "tags": ["tech", "news", "consumer"],
+          "config": { "name": "The Verge", "url": "https://www.theverge.com/rss/index.xml", "category": "tech-news", "fetch_limit": 20 }
+        },
+        {
+          "type": "rss",
+          "description": "Ars Technica — technology, science and policy coverage",
+          "description_zh": "Ars Technica — 科技、科学与政策报道",
+          "tags": ["tech", "science", "policy"],
+          "config": { "name": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index", "category": "tech-news", "fetch_limit": 20 }
+        },
+        {
+          "type": "rss",
+          "description": "TechCrunch — startups, products and venture-backed technology news",
+          "description_zh": "TechCrunch — 创业公司、产品与科技融资新闻",
+          "tags": ["startup", "product", "news"],
+          "config": { "name": "TechCrunch", "url": "https://techcrunch.com/feed/", "category": "tech-news", "fetch_limit": 20 }
+        },
+        {
+          "type": "rss",
+          "description": "The Register — enterprise IT, cloud, chips and software news",
+          "description_zh": "The Register — 企业 IT、云、芯片与软件新闻",
+          "tags": ["enterprise", "cloud", "hardware"],
+          "config": { "name": "The Register", "url": "https://www.theregister.com/headlines.atom", "category": "tech-news", "fetch_limit": 20 }
+        },
+        {
+          "type": "rss",
+          "description": "IEEE Spectrum — engineering and technology news",
+          "description_zh": "IEEE Spectrum — 工程与科技新闻",
+          "tags": ["engineering", "technology", "news"],
+          "config": { "name": "IEEE Spectrum", "url": "https://spectrum.ieee.org/rss/fulltext", "category": "tech-news", "fetch_limit": 20 }
         }
       ]
     },
@@ -263,14 +390,14 @@
           "description": "Nature — latest research highlights",
           "description_zh": "Nature — 最新研究亮点",
           "tags": ["research", "journal"],
-          "config": { "name": "Nature", "url": "https://www.nature.com/nature.rss", "category": "science" }
+          "config": { "name": "Nature", "url": "https://www.nature.com/nature.rss", "category": "science", "fetch_limit": 15 }
         },
         {
           "type": "rss",
           "description": "Quanta Magazine — accessible science journalism",
           "description_zh": "Quanta Magazine — 通俗科学报道",
           "tags": ["science", "journalism"],
-          "config": { "name": "Quanta Magazine", "url": "https://api.quantamagazine.org/feed/", "category": "science" }
+          "config": { "name": "Quanta Magazine", "url": "https://api.quantamagazine.org/feed/", "category": "science", "fetch_limit": 15 }
         }
       ]
     }
