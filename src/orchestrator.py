@@ -493,7 +493,7 @@ class HorizonOrchestrator:
         analyzer = ContentAnalyzer(ai_client, self.config.domains)
         await analyzer.analyze_batch(expanded)
 
-    async def _enrich_important_items(self, items: List[ContentItem]) -> None:
+    async def _enrich_important_items(self, items: List[ContentItem], progress_callback=None) -> None:
         """Enrich items with background knowledge (2nd AI pass).
 
         For each item that passed the score threshold, call AI to generate
@@ -508,10 +508,10 @@ class HorizonOrchestrator:
         self.console.print("📚 Enriching with background knowledge...")
         ai_client = create_ai_client(self.config.ai)
         enricher = ContentEnricher(ai_client)
-        await enricher.enrich_batch(items)
+        await enricher.enrich_batch(items, progress_callback=progress_callback)
         self.console.print(f"   Enriched {len(items)} items\n")
 
-    async def _analyze_content(self, items: List[ContentItem]) -> List[ContentItem]:
+    async def _analyze_content(self, items: List[ContentItem], progress_callback=None) -> List[ContentItem]:
         """Analyze content items with AI.
 
         Args:
@@ -525,7 +525,7 @@ class HorizonOrchestrator:
         ai_client = create_ai_client(self.config.ai)
         analyzer = ContentAnalyzer(ai_client, self.config.domains)
 
-        return await analyzer.analyze_batch(items)
+        return await analyzer.analyze_batch(items, progress_callback=progress_callback)
 
     async def _generate_summary(
         self,

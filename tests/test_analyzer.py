@@ -55,3 +55,21 @@ def test_analyze_batch_sleeps_between_items_when_throttle_configured(monkeypatch
     asyncio.run(analyzer.analyze_batch(items))
 
     assert sleep_calls == [1.5, 1.5]
+
+
+def test_analyze_batch_reports_item_progress(monkeypatch):
+    analyzer = ContentAnalyzer(SimpleNamespace())
+    items = [_make_item("rss:test:1"), _make_item("rss:test:2")]
+    progress = []
+
+    async def fake_analyze_item(item):
+        item.ai_score = 8.0
+
+    async def on_progress(count, item):
+        progress.append((count, item.id))
+
+    monkeypatch.setattr(analyzer, "_analyze_item", fake_analyze_item)
+
+    asyncio.run(analyzer.analyze_batch(items, progress_callback=on_progress))
+
+    assert progress == [(1, "rss:test:1"), (2, "rss:test:2")]

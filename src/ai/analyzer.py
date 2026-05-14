@@ -1,9 +1,10 @@
 """Content analysis using AI."""
 
 import asyncio
+import inspect
 import json
 import re
-from typing import List, Optional
+from typing import Any, Callable, List, Optional
 from tenacity import retry, stop_after_attempt, wait_exponential
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, MofNCompleteColumn
 
@@ -13,6 +14,7 @@ from .utils import parse_json_response
 from ..models import ContentItem
 
 DEFAULT_THROTTLE_SEC = 0.0
+ProgressCallback = Callable[[int, ContentItem], Any]
 
 
 class ContentAnalyzer:
@@ -47,7 +49,11 @@ class ContentAnalyzer:
         throttle_sec = getattr(config, "throttle_sec", DEFAULT_THROTTLE_SEC)
         return max(throttle_sec, 0.0)
 
-    async def analyze_batch(self, items: List[ContentItem]) -> List[ContentItem]:
+    async def analyze_batch(
+        self,
+        items: List[ContentItem],
+        progress_callback: ProgressCallback | None = None,
+    ) -> List[ContentItem]:
         throttle_sec = self._get_throttle_sec()
         analyzed_items = []
 
@@ -71,6 +77,7 @@ class ContentAnalyzer:
                     item.ai_summary = item.title
                     analyzed_items.append(item)
                 progress.advance(task)
+                await _notify_progress(progress_callback, len(analyzed_items), item)
                 if throttle_sec > 0 and index < len(items) - 1:
                     await asyncio.sleep(throttle_sec)
 
@@ -161,3 +168,15 @@ class ContentAnalyzer:
         item.ai_reason = result.get("reason", "")
         item.ai_summary = result.get("summary", item.title)
         item.ai_tags = result.get("tags", [])
+
+
+async def _notify_progress(
+    progress_callback: ProgressCallback | None,
+    count: int,
+    item: ContentItem,
+) -> None:
+    if progress_callback is None:
+        return
+    result = progress_callback(count, item)
+    if inspect.isawaitable(result):
+        await result

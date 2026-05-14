@@ -116,14 +116,30 @@ class PipelineService:
         self._check_cancel(cancel_event)
         self.store.update_run(run_id, status="scoring")
         self.store.add_log(run_id, "info", "scoring", "started")
+        async def mark_scored(count: int, item: ContentItem) -> None:
+            self._check_cancel(cancel_event)
+            self.store.update_run(run_id, scored_count=count)
+
         if self.analyzer_factory:
             analyzer = self.analyzer_factory(config)
-            scored_items = await analyzer.analyze_batch(raw_items)
+            scored_items = await _call_with_optional_progress(
+                analyzer.analyze_batch,
+                raw_items,
+                mark_scored,
+            )
         elif hasattr(orchestrator, "_analyze_content"):
-            scored_items = await orchestrator._analyze_content(raw_items)
+            scored_items = await _call_with_optional_progress(
+                orchestrator._analyze_content,
+                raw_items,
+                mark_scored,
+            )
         else:
             ai_client = create_ai_client(config.ai)
-            scored_items = await ContentAnalyzer(ai_client, config.domains).analyze_batch(raw_items)
+            scored_items = await _call_with_optional_progress(
+                ContentAnalyzer(ai_client, config.domains).analyze_batch,
+                raw_items,
+                mark_scored,
+            )
         self.store.save_items(run_id, scored_items, stage="scored", selected=False)
         self.store.add_log(run_id, "info", "scored", f"saved {len(scored_items)} items")
         return scored_items
@@ -158,8 +174,16 @@ class PipelineService:
     ) -> list[ContentItem]:
         self._check_cancel(cancel_event)
         self.store.update_run(run_id, status="enriching")
+        async def mark_enriched(count: int, item: ContentItem) -> None:
+            self._check_cancel(cancel_event)
+            self.store.update_run(run_id, enriched_count=count)
+
         if hasattr(orchestrator, "_enrich_important_items"):
-            await _maybe_await(orchestrator._enrich_important_items(filtered_items))
+            await _call_with_optional_progress(
+                orchestrator._enrich_important_items,
+                filtered_items,
+                mark_enriched,
+            )
         self.store.save_items(run_id, filtered_items, stage="enriched", selected=True)
         self.store.add_log(run_id, "info", "enriched", f"saved {len(filtered_items)} items")
         return filtered_items
@@ -202,6 +226,27 @@ async def _maybe_await(value: Any) -> Any:
     if inspect.isawaitable(value):
         return await value
     return value
+
+
+async def _call_with_optional_progress(
+    batch_func: Callable[..., Any],
+    items: list[ContentItem],
+    progress_callback: Callable[[int, ContentItem], Any],
+) -> Any:
+    if _accepts_keyword(batch_func, "progress_callback"):
+        return await _maybe_await(batch_func(items, progress_callback=progress_callback))
+    return await _maybe_await(batch_func(items))
+
+
+def _accepts_keyword(func: Callable[..., Any], keyword: str) -> bool:
+    try:
+        parameters = inspect.signature(func).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return any(
+        parameter.name == keyword or parameter.kind == inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters
+    )
 
 
 def _utc_now() -> str:

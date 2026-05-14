@@ -7,9 +7,10 @@ For items that pass the score threshold, this module:
 
 import json
 import re
+import inspect
 import sys
 import os
-from typing import List, Optional
+from typing import Any, Callable, List, Optional
 from tenacity import retry, stop_after_attempt, wait_exponential
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, MofNCompleteColumn
 from ddgs import DDGS
@@ -22,6 +23,8 @@ from .prompts import (
 from .utils import parse_json_response
 from ..models import ContentItem
 
+ProgressCallback = Callable[[int, ContentItem], Any]
+
 
 class ContentEnricher:
     """Enriches high-scoring content items with background knowledge."""
@@ -29,7 +32,11 @@ class ContentEnricher:
     def __init__(self, ai_client: AIClient):
         self.client = ai_client
 
-    async def enrich_batch(self, items: List[ContentItem]) -> None:
+    async def enrich_batch(
+        self,
+        items: List[ContentItem],
+        progress_callback: ProgressCallback | None = None,
+    ) -> None:
         """Enrich items in-place with background knowledge.
 
         Args:
@@ -44,12 +51,13 @@ class ContentEnricher:
         ) as progress:
             task = progress.add_task("Enriching", total=len(items))
 
-            for item in items:
+            for index, item in enumerate(items, start=1):
                 try:
                     await self._enrich_item(item)
                 except Exception as e:
                     print(f"Error enriching item {item.id}: {e}")
                 progress.advance(task)
+                await _notify_progress(progress_callback, index, item)
 
     async def _web_search(self, query: str, max_results: int = 3) -> list:
         """Search the web for context via DuckDuckGo.
@@ -218,3 +226,15 @@ class ContentEnricher:
         item.metadata["detailed_summary"] = item.metadata.get("detailed_summary_en", "")
         item.metadata["background"] = item.metadata.get("background_en", "")
         item.metadata["community_discussion"] = item.metadata.get("community_discussion_en", "")
+
+
+async def _notify_progress(
+    progress_callback: ProgressCallback | None,
+    count: int,
+    item: ContentItem,
+) -> None:
+    if progress_callback is None:
+        return
+    result = progress_callback(count, item)
+    if inspect.isawaitable(result):
+        await result

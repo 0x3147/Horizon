@@ -40,11 +40,11 @@ def settings(tmp_path):
     return AppSettings(data_dir, data_dir / "horizon.db", config_path, "127.0.0.1", 8765)
 
 
-def make_item(score=None):
+def make_item(score=None, item_id="rss:1", title="Example"):
     return ContentItem(
-        id="rss:1",
+        id=item_id,
         source_type=SourceType.RSS,
-        title="Example",
+        title=title,
         url="https://example.com/post",
         content="Body",
         author="Alice",
@@ -70,6 +70,38 @@ class FakeOrchestrator:
     async def _enrich_important_items(self, items):
         for item in items:
             item.metadata["background"] = "Background"
+
+
+class ProgressOrchestrator(FakeOrchestrator):
+    def __init__(self, store):
+        self.store = store
+        self.progress_snapshots = []
+        self.enrich_progress_snapshots = []
+
+    async def fetch_all_sources(self, since):
+        return [
+            make_item(item_id="rss:1", title="One"),
+            make_item(item_id="rss:2", title="Two"),
+            make_item(item_id="rss:3", title="Three"),
+        ]
+
+    async def _analyze_content(self, items, progress_callback=None):
+        for index, item in enumerate(items, start=1):
+            item.ai_score = 8.5
+            item.ai_reason = "Useful"
+            item.ai_summary = "Summary"
+            item.ai_tags = ["ai"]
+            if progress_callback:
+                await progress_callback(index, item)
+                self.progress_snapshots.append(self.store.get_run("run-1")["scored_count"])
+        return items
+
+    async def _enrich_important_items(self, items, progress_callback=None):
+        for index, item in enumerate(items, start=1):
+            item.metadata["background"] = "Background"
+            if progress_callback:
+                await progress_callback(index, item)
+                self.enrich_progress_snapshots.append(self.store.get_run("run-1")["enriched_count"])
 
 
 class FailingOrchestrator(FakeOrchestrator):
@@ -118,6 +150,38 @@ def test_pipeline_persists_stages_and_succeeds(tmp_path):
     assert run["enriched_count"] == 1
     assert pipeline.store.query_items(run_id="run-1", selected_only=True)[0]["ai_score"] == 8.5
     assert pipeline.store.list_summaries("run-1")[0]["markdown"] == "# Summary"
+
+
+def test_pipeline_updates_scored_count_during_scoring(tmp_path):
+    s = settings(tmp_path)
+    store = SQLiteStore(s.db_path)
+    orchestrator = ProgressOrchestrator(store)
+    pipeline = PipelineService(
+        store=store,
+        settings=s,
+        orchestrator_factory=lambda config, storage: orchestrator,
+        summarizer_factory=lambda: FakeSummarizer(),
+    )
+
+    asyncio.run(pipeline.run(run_id="run-1", hours=24))
+
+    assert orchestrator.progress_snapshots == [1, 2, 3]
+
+
+def test_pipeline_updates_enriched_count_during_enrichment(tmp_path):
+    s = settings(tmp_path)
+    store = SQLiteStore(s.db_path)
+    orchestrator = ProgressOrchestrator(store)
+    pipeline = PipelineService(
+        store=store,
+        settings=s,
+        orchestrator_factory=lambda config, storage: orchestrator,
+        summarizer_factory=lambda: FakeSummarizer(),
+    )
+
+    asyncio.run(pipeline.run(run_id="run-1", hours=24))
+
+    assert orchestrator.enrich_progress_snapshots == [1, 2, 3]
 
 
 def test_pipeline_marks_failed_and_logs_errors(tmp_path):
